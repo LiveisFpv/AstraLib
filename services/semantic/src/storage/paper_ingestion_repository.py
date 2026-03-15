@@ -21,9 +21,11 @@ from src.services.ingestion.models import (
     DEFAULT_AUTHOR_STATE,
     DEFAULT_OPENALEX_STATE,
     AuthorSubmission,
+    IngestionDelta,
     OpenAlexPaper,
     StoredPaper,
 )
+from src.storage.citation_repository import CitationRepository
 
 
 OPENALEX_ENTITY_RE = re.compile(r"^[WAISCF]\d+$", re.IGNORECASE)
@@ -31,7 +33,10 @@ SUBMISSION_IDENTIFIER_TYPE = "submission"
 
 
 class PaperIngestionRepository:
-    def upsert_author_submission(self, submission: AuthorSubmission) -> StoredPaper:
+    def __init__(self, *, citation_repository: CitationRepository | None = None) -> None:
+        self.citation_repository = citation_repository or CitationRepository()
+
+    def upsert_author_submission(self, submission: AuthorSubmission) -> IngestionDelta:
         title = (submission.title or "").strip()
         abstract = (submission.abstract or "").strip()
         if not title and not abstract:
@@ -60,35 +65,56 @@ class PaperIngestionRepository:
                 created_at=None,
             )
 
+            seed_paper_ids: set[int] = {int(paper_id)}
             if identifier:
-                if self._looks_like_openalex_identifier(identifier):
-                    aliases = self._build_openalex_aliases(identifier)
-                    for alias in aliases:
-                        link_identifier(conn, paper_id, context.openalex_type_id, alias)
+                identifier_type_id, aliases = self._identifier_spec(
+                    identifier,
+                    openalex_type_id=context.openalex_type_id,
+                    submission_type_id=submission_type_id,
+                )
+                for alias in aliases:
+                    link_identifier(conn, paper_id, identifier_type_id, alias)
+                if identifier_type_id == context.openalex_type_id:
                     context.register_paper_identifiers(paper_id, aliases)
-                else:
-                    link_identifier(conn, paper_id, submission_type_id, identifier)
+                seed_paper_ids.update(
+                    self.citation_repository.resolve_pending_for_identifiers(
+                        conn,
+                        paper_id=paper_id,
+                        identifier_type_id=identifier_type_id,
+                        identifiers=aliases,
+                    )
+                )
 
             self._ensure_best_location(conn, paper_id, submission.best_oa_location)
-            self._ensure_relations(
+
+            resolved_citations, pending_citations = self._resolve_reference_targets(
                 conn,
                 context,
-                paper_id=paper_id,
                 submission_type_id=submission_type_id,
                 identifiers=submission.referenced_works,
-                bidirectional=False,
             )
-            self._ensure_relations(
+            citation_sync = self.citation_repository.replace_outgoing_citations(
+                conn,
+                src_paper_id=paper_id,
+                resolved_dest_ids=resolved_citations,
+                pending_identifiers=pending_citations,
+            )
+            seed_paper_ids.update(citation_sync.seed_paper_ids)
+            seed_paper_ids.update(citation_sync.resolved_pending_sources)
+
+            resolved_related_ids = self._resolve_related_targets(
                 conn,
                 context,
-                paper_id=paper_id,
                 submission_type_id=submission_type_id,
                 identifiers=submission.related_works,
-                bidirectional=True,
             )
-            context.flush_relations()
+            self.citation_repository.sync_related_edges(
+                conn,
+                src_paper_id=paper_id,
+                related_dest_ids=resolved_related_ids,
+            )
 
-            return StoredPaper(
+            stored = StoredPaper(
                 paper_id=paper_id,
                 title=title,
                 abstract=abstract,
@@ -96,14 +122,14 @@ class PaperIngestionRepository:
                 best_oa_location=clean_text(submission.best_oa_location),
                 state=state,
             )
+            return IngestionDelta(stored_papers=[stored], seed_paper_ids=seed_paper_ids)
 
-    def upsert_openalex_batch(self, papers: Iterable[OpenAlexPaper]) -> list[StoredPaper]:
+    def upsert_openalex_batch(self, papers: Iterable[OpenAlexPaper]) -> IngestionDelta:
         entries = [paper for paper in papers if (paper.title or "").strip() or (paper.abstract or "").strip()]
         if not entries:
-            return []
+            return IngestionDelta(stored_papers=[], seed_paper_ids=set())
 
         with transaction() as conn:
-            context = LoaderContext(conn)
             rows: list[RowData] = []
             for paper in entries:
                 locations = list(paper.locations)
@@ -136,9 +162,10 @@ class PaperIngestionRepository:
                     )
                 )
 
-            process_batch(context, rows)
+            process_batch(LoaderContext(conn), rows)
 
             stored: list[StoredPaper] = []
+            seed_paper_ids: set[int] = set()
             for row in rows:
                 if row.paper_id is None:
                     continue
@@ -152,7 +179,8 @@ class PaperIngestionRepository:
                         state=row.type_value or DEFAULT_OPENALEX_STATE,
                     )
                 )
-            return stored
+                seed_paper_ids.update(int(paper_id) for paper_id in row.seed_paper_ids)
+            return IngestionDelta(stored_papers=stored, seed_paper_ids=seed_paper_ids)
 
     def _resolve_author_paper_id(
         self,
@@ -167,6 +195,86 @@ class PaperIngestionRepository:
         if self._looks_like_openalex_identifier(identifier):
             return context.lookup_paper_id(self._build_openalex_aliases(identifier))
         return find_paper_by_identifier(conn, submission_type_id, identifier)
+
+    def _resolve_reference_targets(
+        self,
+        conn,
+        context: LoaderContext,
+        *,
+        submission_type_id: int,
+        identifiers: Iterable[str],
+    ) -> tuple[set[int], set[tuple[int, str]]]:
+        resolved_dest_ids: set[int] = set()
+        pending_identifiers: set[tuple[int, str]] = set()
+
+        for raw_identifier in identifiers:
+            identifier = clean_text(raw_identifier)
+            if not identifier:
+                continue
+
+            identifier_type_id, aliases = self._identifier_spec(
+                identifier,
+                openalex_type_id=context.openalex_type_id,
+                submission_type_id=submission_type_id,
+            )
+            dest_paper_id = self._resolve_target_paper_id(
+                conn,
+                context,
+                identifier_type_id=identifier_type_id,
+                aliases=aliases,
+                submission_type_id=submission_type_id,
+            )
+            if dest_paper_id is not None:
+                resolved_dest_ids.add(int(dest_paper_id))
+            else:
+                for alias in aliases:
+                    pending_identifiers.add((identifier_type_id, alias))
+
+        return resolved_dest_ids, pending_identifiers
+
+    def _resolve_related_targets(
+        self,
+        conn,
+        context: LoaderContext,
+        *,
+        submission_type_id: int,
+        identifiers: Iterable[str],
+    ) -> set[int]:
+        related_dest_ids: set[int] = set()
+        for raw_identifier in identifiers:
+            identifier = clean_text(raw_identifier)
+            if not identifier:
+                continue
+            identifier_type_id, aliases = self._identifier_spec(
+                identifier,
+                openalex_type_id=context.openalex_type_id,
+                submission_type_id=submission_type_id,
+            )
+            dest_paper_id = self._resolve_target_paper_id(
+                conn,
+                context,
+                identifier_type_id=identifier_type_id,
+                aliases=aliases,
+                submission_type_id=submission_type_id,
+            )
+            if dest_paper_id is not None:
+                related_dest_ids.add(int(dest_paper_id))
+        return related_dest_ids
+
+    def _resolve_target_paper_id(
+        self,
+        conn,
+        context: LoaderContext,
+        *,
+        identifier_type_id: int,
+        aliases: list[str],
+        submission_type_id: int,
+    ) -> int | None:
+        if identifier_type_id == context.openalex_type_id:
+            return context.lookup_paper_id(aliases)
+        if identifier_type_id == submission_type_id and aliases:
+            return find_paper_by_identifier(conn, identifier_type_id, aliases[0])
+        return None
 
     def _ensure_best_location(self, conn, paper_id: int, best_oa_location: str | None) -> None:
         url = clean_text(best_oa_location)
@@ -198,29 +306,6 @@ class PaperIngestionRepository:
                 ),
             )
 
-    def _ensure_relations(
-        self,
-        conn,
-        context: LoaderContext,
-        *,
-        paper_id: int,
-        submission_type_id: int,
-        identifiers: Iterable[str],
-        bidirectional: bool,
-    ) -> None:
-        for raw_identifier in identifiers:
-            identifier = clean_text(raw_identifier)
-            if not identifier:
-                continue
-
-            dest_paper_id = context.lookup_paper_id(self._build_openalex_aliases(identifier))
-            if dest_paper_id is None:
-                dest_paper_id = find_paper_by_identifier(conn, submission_type_id, identifier)
-            if dest_paper_id is None:
-                continue
-
-            context.queue_relation(paper_id, dest_paper_id, bidirectional)
-
     @staticmethod
     def _looks_like_openalex_identifier(value: str) -> bool:
         normalized = normalize_openalex_id(value)
@@ -239,6 +324,19 @@ class PaperIngestionRepository:
             aliases.append(normalized)
         aliases.append(cleaned)
         return list(dict.fromkeys(alias for alias in aliases if alias))
+
+    @classmethod
+    def _identifier_spec(
+        cls,
+        value: str,
+        *,
+        openalex_type_id: int,
+        submission_type_id: int,
+    ) -> tuple[int, list[str]]:
+        if cls._looks_like_openalex_identifier(value):
+            return openalex_type_id, cls._build_openalex_aliases(value)
+        cleaned = clean_text(value)
+        return submission_type_id, [cleaned] if cleaned else []
 
     @staticmethod
     def _best_location_from_row(row: RowData) -> str | None:

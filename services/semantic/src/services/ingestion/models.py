@@ -119,6 +119,12 @@ class StoredPaper:
 
 
 @dataclass(slots=True)
+class IngestionDelta:
+    stored_papers: list[StoredPaper]
+    seed_paper_ids: set[int] = field(default_factory=set)
+
+
+@dataclass(slots=True)
 class IngestionTask:
     task_id: int
     source: str
@@ -140,6 +146,7 @@ __all__ = [
     "AuthorSubmission",
     "DEFAULT_AUTHOR_STATE",
     "DEFAULT_OPENALEX_STATE",
+    "IngestionDelta",
     "IngestionTask",
     "OpenAlexPaper",
     "SOURCE_AUTHOR_SUBMISSION",

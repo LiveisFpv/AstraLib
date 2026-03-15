@@ -6,9 +6,14 @@ from typing import Any
 
 from src.al_models.e5.encoder import SemanticEncoder
 from src.lib.logger import Logger
-from src.services.ingestion.models import AuthorSubmission, SOURCE_AUTHOR_SUBMISSION, StoredPaper
+from src.services.ingestion.models import (
+    AuthorSubmission,
+    IngestionDelta,
+    SOURCE_AUTHOR_SUBMISSION,
+)
 from src.services.ingestion.openalex_client import OpenAlexClient
 from src.services.ingestion.settings import IngestionSettings
+from src.services.ingestion.weighted_index import CitationIndexManager
 from src.services.search.faiss_index import FaissIndex
 from src.storage.ingestion_repository import IngestionRepository
 from src.storage.paper_ingestion_repository import PaperIngestionRepository
@@ -25,6 +30,7 @@ class IngestionService:
         settings: IngestionSettings,
         logger: Logger,
         openalex_client: OpenAlexClient | None = None,
+        weighted_index_manager: CitationIndexManager | None = None,
     ) -> None:
         self.queue_repository = queue_repository
         self.paper_repository = paper_repository
@@ -33,6 +39,7 @@ class IngestionService:
         self.settings = settings
         self.logger = logger
         self.openalex_client = openalex_client
+        self.weighted_index_manager = weighted_index_manager
 
     def enqueue_author_submission(self, submission: AuthorSubmission) -> int:
         task = self.queue_repository.enqueue_task(
@@ -83,11 +90,11 @@ class IngestionService:
             raise RuntimeError("OpenAlex client is not configured")
 
         papers = self.openalex_client.fetch_latest(limit=limit)
-        stored = self.paper_repository.upsert_openalex_batch(papers)
-        indexed_count = self._index_papers(stored)
+        delta = self.paper_repository.upsert_openalex_batch(papers)
+        indexed_count = self._index_delta(delta)
         result = {
             "fetched_count": len(papers),
-            "stored_count": len(stored),
+            "stored_count": len(delta.stored_papers),
             "indexed_count": indexed_count,
         }
         self.logger.info(
@@ -103,15 +110,24 @@ class IngestionService:
             raise RuntimeError(f"Unsupported ingestion source: {source}")
 
         submission = AuthorSubmission.from_payload(payload)
-        stored = self.paper_repository.upsert_author_submission(submission)
-        indexed_count = self._index_papers([stored])
+        delta = self.paper_repository.upsert_author_submission(submission)
+        indexed_count = self._index_delta(delta)
         return {
-            "paper_id": stored.paper_id,
+            "paper_id": delta.stored_papers[0].paper_id if delta.stored_papers else None,
             "indexed_count": indexed_count,
         }
 
-    def _index_papers(self, papers: list[StoredPaper]) -> int:
-        candidates = [paper for paper in papers if paper.text and not self.index.contains_doc_id(paper.paper_id)]
+    def _index_delta(self, delta: IngestionDelta) -> int:
+        if not delta.stored_papers and not delta.seed_paper_ids:
+            return 0
+
+        if self.weighted_index_manager is not None:
+            return self.weighted_index_manager.apply_delta(
+                delta.stored_papers,
+                delta.seed_paper_ids,
+            )
+
+        candidates = [paper for paper in delta.stored_papers if paper.text and not self.index.contains_doc_id(paper.paper_id)]
         if not candidates:
             return 0
 

@@ -38,6 +38,7 @@ class IngestionSettings:
     openalex_timeout_seconds: int = int(os.getenv("INGESTION_OPENALEX_TIMEOUT_SECONDS", "30"))
     openalex_email: str | None = os.getenv("OPENALEX_EMAIL")
     openalex_languages: tuple[str, ...] = _env_languages("INGESTION_OPENALEX_LANGUAGES", ("en", "ru"))
+    weighted_runtime_required: bool = _env_bool("INGESTION_WEIGHTED_RUNTIME_REQUIRED", False)
 
     @property
     def openalex_per_language_limit(self) -> int:

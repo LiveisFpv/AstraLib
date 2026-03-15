@@ -54,20 +54,14 @@ class PaperRepository:
                 ),
                 referenced AS (
                     SELECT
-                        pr.src_paper_id AS paper_id,
+                        ce.src_paper_id AS paper_id,
                         array_agg(DISTINCT pi.identifier ORDER BY pi.identifier) AS refs
-                    FROM paper_relations pr
-                    JOIN paper_identifiers pi ON pi.paper_id = pr.dst_paper_id
+                    FROM citation_edges ce
+                    JOIN paper_identifiers pi ON pi.paper_id = ce.dst_paper_id
                     JOIN identifier_types it ON it.identifier_type_id = pi.identifier_type_id
                     WHERE it.name = 'openalex'
-                      AND pr.src_paper_id = ANY(%s::int[])
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM paper_relations rev
-                          WHERE rev.src_paper_id = pr.dst_paper_id
-                            AND rev.dst_paper_id = pr.src_paper_id
-                      )
-                    GROUP BY pr.src_paper_id
+                      AND ce.src_paper_id = ANY(%s::int[])
+                    GROUP BY ce.src_paper_id
                 ),
                 related AS (
                     SELECT
@@ -85,17 +79,11 @@ class PaperRepository:
                 ),
                 cited AS (
                     SELECT
-                        pr.dst_paper_id AS paper_id,
+                        ce.dst_paper_id AS paper_id,
                         COUNT(*) AS cited_by
-                    FROM paper_relations pr
-                    WHERE pr.dst_paper_id = ANY(%s::int[])
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM paper_relations rev
-                          WHERE rev.src_paper_id = pr.dst_paper_id
-                            AND rev.dst_paper_id = pr.src_paper_id
-                      )
-                    GROUP BY pr.dst_paper_id
+                    FROM citation_edges ce
+                    WHERE ce.dst_paper_id = ANY(%s::int[])
+                    GROUP BY ce.dst_paper_id
                 )
                 SELECT
                     b.ord,

@@ -22,9 +22,11 @@ from src.services.ingestion.ingestion_service import IngestionService
 from src.services.ingestion.openalex_client import OpenAlexClient
 from src.services.ingestion.scheduler import IngestionScheduler
 from src.services.ingestion.settings import IngestionSettings
+from src.services.ingestion.weighted_index import maybe_create_weighted_index_manager
 from src.services.search.faiss_index import FaissIndex
 from src.services.search.faiss_searcher import FaissSearcher
 from src.services.search.search_service import SearchService
+from src.storage.citation_repository import CitationRepository
 from src.services.user_service import UserService
 from src.storage.chat_repository import ChatRepository
 from src.storage.ingestion_repository import IngestionRepository
@@ -53,7 +55,15 @@ def main() -> None:
 
     ingestion_settings = IngestionSettings()
     ingestion_repository = IngestionRepository()
-    paper_ingestion_repository = PaperIngestionRepository()
+    citation_repository = CitationRepository()
+    paper_ingestion_repository = PaperIngestionRepository(citation_repository=citation_repository)
+    weighted_index_manager = maybe_create_weighted_index_manager(
+        index=index,
+        encoder=encoder,
+        citation_repository=citation_repository,
+        logger=logger,
+        required=ingestion_settings.weighted_runtime_required,
+    )
     openalex_client = OpenAlexClient(ingestion_settings) if ingestion_settings.openalex_enabled else None
     ingestion_service = IngestionService(
         queue_repository=ingestion_repository,
@@ -63,6 +73,7 @@ def main() -> None:
         settings=ingestion_settings,
         logger=logger,
         openalex_client=openalex_client,
+        weighted_index_manager=weighted_index_manager,
     )
     ingestion_scheduler = IngestionScheduler(
         service=ingestion_service,

@@ -7,202 +7,57 @@ import argparse
 import json
 import os
 from pathlib import Path
+from typing import Callable, Iterable, Sequence
 
 import faiss
 import numpy as np
 import pyarrow.parquet as pq
 from tqdm import tqdm
 
-
-def load_memmap(mem_path: Path) -> tuple[np.memmap, int, int]:
-    meta_path = mem_path.with_suffix(".shape.json")
-    with open(meta_path, "r", encoding="utf-8") as meta_file:
-        n_vectors, dim = json.load(meta_file)
-    arr = np.memmap(mem_path, dtype=np.float16, mode="r", shape=(n_vectors, dim))
-    return arr, int(n_vectors), int(dim)
-
-
-def cache_paths(cache_dir: Path) -> dict[str, Path]:
-    return {
-        "out1_sum": cache_dir / "cites_out1.sum.f32.memmap",
-        "in1_sum": cache_dir / "citedby_in1.sum.f32.memmap",
-        "out2_sum": cache_dir / "cites_out2.sum.f32.memmap",
-        "in2_sum": cache_dir / "citedby_in2.sum.f32.memmap",
-        "out1_mean": cache_dir / "cites_out1.mean.f16.memmap",
-        "in1_mean": cache_dir / "citedby_in1.mean.f16.memmap",
-        "out2_mean": cache_dir / "cites_out2.mean.f16.memmap",
-        "in2_mean": cache_dir / "citedby_in2.mean.f16.memmap",
-        "deg_out": cache_dir / "deg_out.npy",
-        "deg_in": cache_dir / "deg_in.npy",
-    }
+from src.parser.citation_cache import (
+    CITATION_CACHE_VERSION,
+    build_citation_cache_from_batches,
+    build_weighted_vectors,
+    cache_paths,
+    cache_ready,
+    load_memmap,
+    parse_weights,
+)
+from src.storage.citation_repository import CitationRepository
 
 
-def cache_ready(cache_dir: Path, n: int, d: int) -> bool:
-    required = ["out1_mean", "in1_mean", "out2_mean", "in2_mean"]
-    size = n * d * 2  # float16
-    paths = cache_paths(cache_dir)
-    for key in required:
-        path = paths[key]
-        if not path.exists():
-            return False
-        if path.stat().st_size != size:
-            return False
-    return True
-
-
-def iter_edge_batches(paths: list[str], batch_rows: int, desc: str) -> tuple[np.ndarray, np.ndarray]:
-    for path in paths:
-        pf = pq.ParquetFile(path)
-        total = pf.metadata.num_rows
-        pbar = tqdm(total=total, desc=f"{desc}: {os.path.basename(path)}", unit="edge", dynamic_ncols=True)
-        for rg in range(pf.num_row_groups):
-            table = pf.read_row_group(rg, columns=["source_id", "target_id"])
-            src = table.column("source_id").to_numpy(zero_copy_only=False)
-            tgt = table.column("target_id").to_numpy(zero_copy_only=False)
-            n = len(src)
-            for s in range(0, n, batch_rows):
-                e = min(s + batch_rows, n)
-                pbar.update(e - s)
-                yield src[s:e], tgt[s:e]
-        pbar.close()
-
-
-def map_ids(arr: np.ndarray, id_to_idx: dict) -> np.ndarray:
-    return np.fromiter((id_to_idx.get(x, -1) for x in arr), dtype=np.int32, count=len(arr))
-
-
-def zero_memmap(path: Path, shape: tuple[int, int]) -> np.memmap:
-    arr = np.memmap(path, dtype=np.float32, mode="w+", shape=shape)
-    arr[:] = 0
-    arr.flush()
-    return arr
-
-
-def write_means(sum_memmap: np.memmap, counts: np.ndarray, out_path: Path, chunk_docs: int) -> None:
-    n = sum_memmap.shape[0]
-    mean = np.memmap(out_path, dtype=np.float16, mode="w+", shape=sum_memmap.shape)
-    for s in tqdm(range(0, n, chunk_docs), desc=f"Write {out_path.name}", unit="doc", dynamic_ncols=True):
-        e = min(s + chunk_docs, n)
-        chunk = np.array(sum_memmap[s:e], dtype=np.float32, copy=True)
-        cnt = counts[s:e].astype(np.float32)
-        mask = cnt > 0
-        if mask.any():
-            chunk[mask] /= cnt[mask][:, None]
-        chunk[~mask] = 0.0
-        mean[s:e] = chunk.astype(np.float16)
-    mean.flush()
-
-
-def build_citation_cache(
-    emb: np.memmap,
-    id_to_idx: dict,
-    edge_paths: list[str],
-    cache_dir: Path,
+def iter_parquet_edge_batches(
+    paths: list[str],
     *,
     batch_rows: int,
-    vec_chunk: int,
-    doc_chunk: int,
-    keep_sums: bool,
-) -> None:
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    n, d = emb.shape
-    paths = cache_paths(cache_dir)
-
-    print("Pass 1/2: level-1 sums")
-    out1_sum = zero_memmap(paths["out1_sum"], (n, d))
-    in1_sum = zero_memmap(paths["in1_sum"], (n, d))
-    deg_out = np.zeros(n, dtype=np.int32)
-    deg_in = np.zeros(n, dtype=np.int32)
-
-    for src_ids, tgt_ids in iter_edge_batches(edge_paths, batch_rows=batch_rows, desc="Level1"):
-        src_idx = map_ids(src_ids, id_to_idx)
-        tgt_idx = map_ids(tgt_ids, id_to_idx)
-        mask = (src_idx >= 0) & (tgt_idx >= 0)
-        if not mask.any():
-            continue
-        src_idx = src_idx[mask]
-        tgt_idx = tgt_idx[mask]
-        if len(src_idx) == 0:
-            continue
-        np.add.at(deg_out, src_idx, 1)
-        np.add.at(deg_in, tgt_idx, 1)
-
-        for s in range(0, len(src_idx), vec_chunk):
-            e = min(s + vec_chunk, len(src_idx))
-            ss = src_idx[s:e]
-            tt = tgt_idx[s:e]
-            np.add.at(out1_sum, ss, emb[tt])
-            np.add.at(in1_sum, tt, emb[ss])
-
-    out1_sum.flush()
-    in1_sum.flush()
-
-    print("Write level-1 means")
-    write_means(out1_sum, deg_out, paths["out1_mean"], chunk_docs=doc_chunk)
-    write_means(in1_sum, deg_in, paths["in1_mean"], chunk_docs=doc_chunk)
-
-    print("Pass 2/2: level-2 sums")
-    out2_sum = zero_memmap(paths["out2_sum"], (n, d))
-    in2_sum = zero_memmap(paths["in2_sum"], (n, d))
-    cnt_out2 = np.zeros(n, dtype=np.int32)
-    cnt_in2 = np.zeros(n, dtype=np.int32)
-
-    for src_ids, tgt_ids in iter_edge_batches(edge_paths, batch_rows=batch_rows, desc="Level2"):
-        src_idx = map_ids(src_ids, id_to_idx)
-        tgt_idx = map_ids(tgt_ids, id_to_idx)
-        mask = (src_idx >= 0) & (tgt_idx >= 0)
-        if not mask.any():
-            continue
-        src_idx = src_idx[mask]
-        tgt_idx = tgt_idx[mask]
-        if len(src_idx) == 0:
-            continue
-        np.add.at(cnt_out2, src_idx, deg_out[tgt_idx])
-        np.add.at(cnt_in2, tgt_idx, deg_in[src_idx])
-
-        for s in range(0, len(src_idx), vec_chunk):
-            e = min(s + vec_chunk, len(src_idx))
-            ss = src_idx[s:e]
-            tt = tgt_idx[s:e]
-            np.add.at(out2_sum, ss, out1_sum[tt])
-            np.add.at(in2_sum, tt, in1_sum[ss])
-
-    out2_sum.flush()
-    in2_sum.flush()
-
-    print("Write level-2 means")
-    write_means(out2_sum, cnt_out2, paths["out2_mean"], chunk_docs=doc_chunk)
-    write_means(in2_sum, cnt_in2, paths["in2_mean"], chunk_docs=doc_chunk)
-
-    np.save(paths["deg_out"], deg_out)
-    np.save(paths["deg_in"], deg_in)
-
-    if not keep_sums:
-        del out1_sum, in1_sum, out2_sum, in2_sum
-        for key in ("out1_sum", "in1_sum", "out2_sum", "in2_sum"):
-            try:
-                paths[key].unlink()
-            except OSError:
-                pass
+    desc: str,
+) -> Iterable[list[tuple[int, int]]]:
+    for path in paths:
+        parquet_file = pq.ParquetFile(path)
+        total = parquet_file.metadata.num_rows
+        progress = tqdm(
+            total=total,
+            desc=f"{desc}: {os.path.basename(path)}",
+            unit="edge",
+            dynamic_ncols=True,
+        )
+        for row_group in range(parquet_file.num_row_groups):
+            table = parquet_file.read_row_group(row_group, columns=["source_id", "target_id"])
+            src = table.column("source_id").to_numpy(zero_copy_only=False)
+            dst = table.column("target_id").to_numpy(zero_copy_only=False)
+            for start in range(0, len(src), batch_rows):
+                end = min(start + batch_rows, len(src))
+                progress.update(end - start)
+                yield [
+                    (int(src_id), int(dst_id))
+                    for src_id, dst_id in zip(src[start:end], dst[start:end], strict=False)
+                ]
+        progress.close()
 
 
-def parse_weights(s: str) -> dict[str, float]:
-    parts = [p.strip() for p in s.split(",") if p.strip()]
-    out = {"self": 1.0, "out1": 0.0, "in1": 0.0, "out2": 0.0, "in2": 0.0}
-    for p in parts:
-        if "=" not in p:
-            raise ValueError(f"Bad weights token: {p}")
-        key, val = p.split("=", 1)
-        key = key.strip()
-        if key not in out:
-            raise ValueError(f"Unknown weight key: {key}")
-        out[key] = float(val)
-    return out
-
-
-def build_weighted_vectors(
-    idx: np.ndarray,
-    emb: np.memmap,
+def materialize_weighted_vectors(
+    row_indices: np.ndarray,
+    embeddings: np.memmap,
     out1: np.memmap | None,
     in1: np.memmap | None,
     out2: np.memmap | None,
@@ -211,27 +66,237 @@ def build_weighted_vectors(
     *,
     normalize: bool,
 ) -> np.ndarray:
-    vec = weights["self"] * emb[idx].astype(np.float32)
-    if out1 is not None and weights["out1"] != 0.0:
-        vec += weights["out1"] * out1[idx].astype(np.float32)
-    if in1 is not None and weights["in1"] != 0.0:
-        vec += weights["in1"] * in1[idx].astype(np.float32)
-    if out2 is not None and weights["out2"] != 0.0:
-        vec += weights["out2"] * out2[idx].astype(np.float32)
-    if in2 is not None and weights["in2"] != 0.0:
-        vec += weights["in2"] * in2[idx].astype(np.float32)
-    if normalize:
-        faiss.normalize_L2(vec)
-    return vec
+    base_vectors = np.asarray(embeddings[row_indices], dtype=np.float32)
+    out1_vectors = np.asarray(out1[row_indices], dtype=np.float32) if out1 is not None else None
+    in1_vectors = np.asarray(in1[row_indices], dtype=np.float32) if in1 is not None else None
+    out2_vectors = np.asarray(out2[row_indices], dtype=np.float32) if out2 is not None else None
+    in2_vectors = np.asarray(in2[row_indices], dtype=np.float32) if in2 is not None else None
+    return build_weighted_vectors(
+        base_vectors,
+        out1_vectors,
+        in1_vectors,
+        out2_vectors,
+        in2_vectors,
+        weights,
+        normalize=normalize,
+    )
 
 
-def main() -> None:
+def artifact_ref(base_dir: Path, path: Path | None) -> str | None:
+    if path is None:
+        return None
+    try:
+        return str(path.resolve().relative_to(base_dir.resolve()))
+    except ValueError:
+        return str(path)
+
+
+def create_index(
+    *,
+    dim: int,
+    index_type: str,
+    metric: int,
+    nlist: int,
+    m: int,
+    nbits: int,
+    mutable_runtime: bool,
+):
+    if index_type == "flat":
+        base_index = faiss.IndexFlatIP(dim) if metric == faiss.METRIC_INNER_PRODUCT else faiss.IndexFlatL2(dim)
+        if mutable_runtime:
+            return faiss.IndexIDMap2(base_index)
+        return base_index
+
+    if index_type == "ivfflat":
+        description = f"IVF{nlist},Flat"
+    elif index_type == "ivfpq":
+        description = f"IVF{nlist},PQ{m}x{nbits}"
+    else:
+        raise ValueError(f"Unsupported index type: {index_type}")
+
+    index = faiss.index_factory(dim, description, metric)
+    if mutable_runtime:
+        _enable_direct_map(index)
+    return index
+
+
+def _enable_direct_map(index) -> None:
+    if not hasattr(faiss, "extract_index_ivf"):
+        return
+    try:
+        ivf_index = faiss.extract_index_ivf(index)
+    except Exception:
+        ivf_index = None
+    if ivf_index is None:
+        return
+    if hasattr(ivf_index, "set_direct_map_type"):
+        ivf_index.set_direct_map_type(faiss.DirectMap.Hashtable)
+
+
+def build_faiss_index(
+    *,
+    mem_path: Path,
+    doc_ids_path: Path,
+    out_path: Path,
+    index_type: str,
+    metric_name: str,
+    nlist: int,
+    m: int,
+    nbits: int,
+    train_size: int,
+    seed: int,
+    weights: dict[str, float],
+    normalize: bool,
+    cache_dir: Path | None,
+    edge_batches_factory: Callable[[], Iterable[Sequence[tuple[int, int]]]] | None,
+    recompute_cache: bool,
+    vec_chunk: int,
+    doc_chunk: int,
+    keep_sums: bool,
+    add_batch: int,
+    mutable_runtime: bool,
+    dirty_marker_name: str | None = None,
+) -> dict[str, object]:
+    embeddings, n_vecs, dim = load_memmap(mem_path)
+    doc_ids = np.load(doc_ids_path, allow_pickle=False)
+    if len(doc_ids) != n_vecs:
+        raise RuntimeError("Document IDs count does not match embeddings count")
+
+    needs_citation = any(weights[key] != 0.0 for key in ("out1", "in1", "out2", "in2"))
+    if mutable_runtime and not needs_citation:
+        raise RuntimeError("Mutable weighted runtime requires non-zero citation weights")
+    if needs_citation and edge_batches_factory is None:
+        raise RuntimeError("Citation weights require an edge source")
+
+    out1 = in1 = out2 = in2 = None
+    if needs_citation:
+        if cache_dir is None:
+            raise RuntimeError("cache_dir is required when citation weights are enabled")
+        if recompute_cache or not cache_ready(cache_dir, n_vecs, dim):
+            id_to_idx = {int(doc_id): idx for idx, doc_id in enumerate(doc_ids.tolist())}
+            build_citation_cache_from_batches(
+                embeddings,
+                id_to_idx,
+                edge_batches_factory,
+                cache_dir,
+                vec_chunk=vec_chunk,
+                doc_chunk=doc_chunk,
+                keep_sums=keep_sums,
+            )
+        paths = cache_paths(cache_dir)
+        out1 = np.memmap(paths["out1_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
+        in1 = np.memmap(paths["in1_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
+        out2 = np.memmap(paths["out2_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
+        in2 = np.memmap(paths["in2_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
+
+    metric = faiss.METRIC_INNER_PRODUCT if metric_name == "ip" else faiss.METRIC_L2
+    index = create_index(
+        dim=dim,
+        index_type=index_type,
+        metric=metric,
+        nlist=nlist,
+        m=m,
+        nbits=nbits,
+        mutable_runtime=mutable_runtime,
+    )
+
+    if not mutable_runtime and index_type != "flat":
+        rng = np.random.RandomState(seed)
+        sample_size = min(train_size, n_vecs)
+        sample_idx = rng.choice(n_vecs, size=sample_size, replace=False)
+        train_vectors = materialize_weighted_vectors(
+            sample_idx,
+            embeddings,
+            out1,
+            in1,
+            out2,
+            in2,
+            weights,
+            normalize=normalize,
+        )
+        index.train(train_vectors)
+    elif mutable_runtime and index_type != "flat":
+        rng = np.random.RandomState(seed)
+        sample_size = min(train_size, n_vecs)
+        sample_idx = rng.choice(n_vecs, size=sample_size, replace=False)
+        train_vectors = materialize_weighted_vectors(
+            sample_idx,
+            embeddings,
+            out1,
+            in1,
+            out2,
+            in2,
+            weights,
+            normalize=normalize,
+        )
+        index.train(train_vectors)
+
+    for start in tqdm(range(0, n_vecs, add_batch), desc="Adding", unit="vecs", dynamic_ncols=True):
+        end = min(start + add_batch, n_vecs)
+        row_indices = np.arange(start, end)
+        vectors = materialize_weighted_vectors(
+            row_indices,
+            embeddings,
+            out1,
+            in1,
+            out2,
+            in2,
+            weights,
+            normalize=normalize,
+        )
+        if mutable_runtime:
+            index.add_with_ids(vectors, doc_ids[row_indices].astype(np.int64))
+        else:
+            index.add(vectors)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    faiss.write_index(index, str(out_path))
+
+    meta = {
+        "vectors": int(n_vecs),
+        "dimension": int(dim),
+        "metric": metric_name,
+        "index_type": index_type,
+        "nlist": int(nlist) if index_type in {"ivfflat", "ivfpq"} else None,
+        "m": int(m) if index_type == "ivfpq" else None,
+        "nbits": int(nbits) if index_type == "ivfpq" else None,
+        "train_size": int(min(train_size, n_vecs)),
+        "seed": int(seed),
+        "doc_ids": artifact_ref(out_path.parent, doc_ids_path),
+        "weights": dict(weights),
+        "normalized": bool(normalize),
+        "id_mode": "paper_id" if mutable_runtime else "position",
+        "citation_cache_version": CITATION_CACHE_VERSION if needs_citation else None,
+        "artifacts": {
+            "doc_ids": artifact_ref(out_path.parent, doc_ids_path),
+            "embeddings": artifact_ref(out_path.parent, mem_path),
+            "cache_dir": artifact_ref(out_path.parent, cache_dir),
+            "dirty_marker": dirty_marker_name or f"{out_path.name}.dirty",
+        },
+        "training": {
+            "index_type": index_type,
+            "metric": metric_name,
+            "nlist": int(nlist),
+            "m": int(m),
+            "nbits": int(nbits),
+            "train_size": int(min(train_size, n_vecs)),
+            "seed": int(seed),
+            "add_batch": int(add_batch),
+        },
+    }
+    meta_path = out_path.with_suffix(out_path.suffix + ".meta.json")
+    with open(meta_path, "w", encoding="utf-8") as meta_file:
+        json.dump(meta, meta_file, ensure_ascii=False, indent=2)
+    return meta
+
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build FAISS index from embeddings")
     parser.add_argument("--emb-dir", required=True, help="Directory containing embedding outputs")
     parser.add_argument("--memfile", default="doc_embeddings.f16.memmap", help="Memmap file name")
     parser.add_argument("--doc-ids", default="doc_ids.npy", help="Doc IDs numpy file")
     parser.add_argument("--out", help="Output index path (defaults to <emb-dir>/faiss.index)")
-    parser.add_argument("--index-type", choices=["flat", "ivfpq"], default="ivfpq")
+    parser.add_argument("--index-type", choices=["flat", "ivfflat", "ivfpq"], default="ivfpq")
     parser.add_argument("--metric", choices=["ip", "l2"], default="ip")
     parser.add_argument("--nlist", type=int, default=4096)
     parser.add_argument("--m", type=int, default=32)
@@ -240,6 +305,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--weights", help="Citation weights: self=1.0,out1=0.0,in1=0.0,out2=0.0,in2=0.0")
     parser.add_argument("--edges", nargs="+", help="Parquet edge files with source_id/target_id")
+    parser.add_argument("--citations-from-db", action="store_true", help="Read citation_edges from Postgres")
     parser.add_argument("--cache-dir", help="Cache dir for citation vectors (defaults to <emb-dir>/citation_cache)")
     parser.add_argument("--recompute-cache", action="store_true")
     parser.add_argument("--edge-batch-rows", type=int, default=200_000)
@@ -248,91 +314,62 @@ def main() -> None:
     parser.add_argument("--keep-sums", action="store_true")
     parser.add_argument("--add-batch", type=int, default=200_000)
     parser.add_argument("--no-normalize", action="store_true")
-    args = parser.parse_args()
+    parser.add_argument("--mutable-runtime", action="store_true", help="Store paper_id as FAISS external ids")
+    parser.add_argument("--dirty-marker-name", help="Dirty marker filename for mutable runtime")
+    return parser.parse_args()
+
+
+def resolve_edge_batches_factory(args: argparse.Namespace) -> Callable[[], Iterable[Sequence[tuple[int, int]]]] | None:
+    if args.citations_from_db and args.edges:
+        raise SystemExit("Use either --citations-from-db or --edges, not both")
+    if args.citations_from_db:
+        repository = CitationRepository()
+        return lambda: repository.iter_edges(batch_size=args.edge_batch_rows)
+    if args.edges:
+        edge_paths = [str(path) for path in args.edges]
+        return lambda: iter_parquet_edge_batches(edge_paths, batch_rows=args.edge_batch_rows, desc="Citations")
+    return None
+
+
+def main() -> None:
+    args = parse_args()
 
     emb_dir = Path(args.emb_dir)
     mem_path = emb_dir / args.memfile
     doc_ids_path = emb_dir / args.doc_ids
     out_path = Path(args.out) if args.out else emb_dir / "faiss.index"
-
-    embeddings, n_vecs, dim = load_memmap(mem_path)
-    doc_ids = np.load(doc_ids_path, allow_pickle=True)
-    if len(doc_ids) != n_vecs:
-        raise SystemExit("Document IDs count does not match embeddings count")
+    cache_dir = Path(args.cache_dir) if args.cache_dir else emb_dir / "citation_cache"
 
     weights = parse_weights(args.weights) if args.weights else {
-        "self": 1.0, "out1": 0.0, "in1": 0.0, "out2": 0.0, "in2": 0.0
+        "self": 1.0,
+        "out1": 0.0,
+        "in1": 0.0,
+        "out2": 0.0,
+        "in2": 0.0,
     }
-    needs_citation = any(weights[k] != 0.0 for k in ("out1", "in1", "out2", "in2"))
-    normalize = not args.no_normalize
-
-    out1 = in1 = out2 = in2 = None
-    cache_dir = None
-    edge_paths: list[str] = []
-    if needs_citation:
-        if not args.edges:
-            raise SystemExit("--edges is required when citation weights are non-zero")
-        edge_paths = [str(p) for p in args.edges]
-        cache_dir = Path(args.cache_dir) if args.cache_dir else emb_dir / "citation_cache"
-        if args.recompute_cache or not cache_ready(cache_dir, n_vecs, dim):
-            id_to_idx = {doc_id: i for i, doc_id in enumerate(doc_ids)}
-            build_citation_cache(
-                embeddings,
-                id_to_idx,
-                edge_paths,
-                cache_dir,
-                batch_rows=args.edge_batch_rows,
-                vec_chunk=args.vec_chunk,
-                doc_chunk=args.doc_chunk,
-                keep_sums=args.keep_sums,
-            )
-        paths = cache_paths(cache_dir)
-        out1 = np.memmap(paths["out1_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
-        in1 = np.memmap(paths["in1_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
-        out2 = np.memmap(paths["out2_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
-        in2 = np.memmap(paths["in2_mean"], dtype=np.float16, mode="r", shape=(n_vecs, dim))
-
-    metric = faiss.METRIC_INNER_PRODUCT if args.metric == "ip" else faiss.METRIC_L2
-
-    rng = np.random.RandomState(args.seed)
-    train_size = min(args.train_size, n_vecs)
-    train_idx = rng.choice(n_vecs, size=train_size, replace=False)
-    train_vectors = build_weighted_vectors(
-        train_idx, embeddings, out1, in1, out2, in2, weights, normalize=normalize
+    build_faiss_index(
+        mem_path=mem_path,
+        doc_ids_path=doc_ids_path,
+        out_path=out_path,
+        index_type=args.index_type,
+        metric_name=args.metric,
+        nlist=args.nlist,
+        m=args.m,
+        nbits=args.nbits,
+        train_size=args.train_size,
+        seed=args.seed,
+        weights=weights,
+        normalize=not args.no_normalize,
+        cache_dir=cache_dir,
+        edge_batches_factory=resolve_edge_batches_factory(args),
+        recompute_cache=args.recompute_cache,
+        vec_chunk=args.vec_chunk,
+        doc_chunk=args.doc_chunk,
+        keep_sums=args.keep_sums,
+        add_batch=args.add_batch,
+        mutable_runtime=args.mutable_runtime,
+        dirty_marker_name=args.dirty_marker_name,
     )
-
-    if args.index_type == "flat":
-        index = faiss.IndexFlatIP(dim) if args.metric == "ip" else faiss.IndexFlatL2(dim)
-    else:
-        description = f"IVF{args.nlist},PQ{args.m}x{args.nbits}"
-        index = faiss.index_factory(dim, description, metric)
-        index.train(train_vectors)
-
-    for start in tqdm(range(0, n_vecs, args.add_batch), desc="Adding", unit="vecs", dynamic_ncols=True):
-        end = min(start + args.add_batch, n_vecs)
-        batch_idx = np.arange(start, end)
-        vectors = build_weighted_vectors(
-            batch_idx, embeddings, out1, in1, out2, in2, weights, normalize=normalize
-        )
-        index.add(vectors)
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    faiss.write_index(index, str(out_path))
-    meta = {
-        "vectors": n_vecs,
-        "dimension": dim,
-        "metric": args.metric,
-        "type": args.index_type,
-        "nlist": getattr(index, "nlist", None),
-        "doc_ids": str(doc_ids_path.name),
-        "weights": weights,
-        "citation_cache": str(cache_dir) if cache_dir else None,
-        "citation_edges": edge_paths or None,
-        "normalized": normalize,
-    }
-    with open(out_path.with_suffix(out_path.suffix + ".meta.json"), "w", encoding="utf-8") as meta_file:
-        json.dump(meta, meta_file, ensure_ascii=False, indent=2)
-
     print(f"Saved index to {out_path}")
 
 

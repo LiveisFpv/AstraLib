@@ -10,7 +10,7 @@ import os
 import re
 import sys
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -24,6 +24,7 @@ from psycopg import Connection
 from psycopg.rows import Row
 
 from src.db.connection import get_connection
+from src.storage.citation_repository import CitationRepository
 
 
 LOGGER = logging.getLogger("openalex_loader")
@@ -161,6 +162,7 @@ class RowData:
     related_ids: List[str]
     paper_id: Optional[int] = None
     is_existing: bool = False
+    seed_paper_ids: Set[int] = field(default_factory=set)
 
 
 def process_batch(context: LoaderContext, rows: List[RowData]) -> None:
@@ -378,51 +380,67 @@ def process_batch(context: LoaderContext, rows: List[RowData]) -> None:
             with conn.cursor() as cur:
                 execute_values(cur, insert_sql, to_insert)
 
-    relation_candidates: List[Tuple[int, str, Optional[str], bool]] = []
-    dest_identifiers: Set[str] = set()
     for row in rows:
         if row.paper_id is None:
             continue
+
+        row.seed_paper_ids.add(int(row.paper_id))
+        row.seed_paper_ids.update(
+            context.resolve_pending_citations_for_identifiers(
+                row.paper_id,
+                identifier_type_id=context.openalex_type_id,
+                identifiers=row.identifier_aliases,
+            )
+        )
+
+        desired_citation_dest_ids: set[int] = set()
+        pending_citation_identifiers: set[tuple[int, str]] = set()
         for identifier in row.referenced_ids:
             cleaned = (identifier or "").strip()
             if not cleaned:
                 continue
+            aliases = [cleaned]
             normalized = normalize_openalex_id(cleaned)
-            relation_candidates.append((row.paper_id, cleaned, normalized, False))
-            dest_identifiers.add(cleaned)
             if normalized:
-                dest_identifiers.add(normalized)
+                aliases.insert(0, normalized)
+            aliases = [value for value in dict.fromkeys(value for value in aliases if value)]
+
+            dest_paper_id = context.lookup_paper_id(aliases)
+            if dest_paper_id is not None and int(dest_paper_id) != int(row.paper_id):
+                desired_citation_dest_ids.add(int(dest_paper_id))
+            else:
+                for alias in aliases:
+                    pending_citation_identifiers.add((context.openalex_type_id, alias))
+
+        citation_sync = context.citation_repository.replace_outgoing_citations(
+            conn,
+            src_paper_id=int(row.paper_id),
+            resolved_dest_ids=desired_citation_dest_ids,
+            pending_identifiers=pending_citation_identifiers,
+        )
+        row.seed_paper_ids.update(citation_sync.seed_paper_ids)
+        row.seed_paper_ids.update(citation_sync.resolved_pending_sources)
+
+        desired_related_dest_ids: set[int] = set()
         for identifier in row.related_ids:
             cleaned = (identifier or "").strip()
             if not cleaned:
                 continue
+            aliases = [cleaned]
             normalized = normalize_openalex_id(cleaned)
-            relation_candidates.append((row.paper_id, cleaned, normalized, True))
-            dest_identifiers.add(cleaned)
             if normalized:
-                dest_identifiers.add(normalized)
+                aliases.insert(0, normalized)
+            aliases = [value for value in dict.fromkeys(value for value in aliases if value)]
 
-    dest_map = context.fetch_paper_ids(dest_identifiers)
-    context.resolve_pending_from_map(dest_map)
+            dest_paper_id = context.lookup_paper_id(aliases)
+            if dest_paper_id is not None and int(dest_paper_id) != int(row.paper_id):
+                desired_related_dest_ids.add(int(dest_paper_id))
 
-    for src_paper_id, raw_id, normalized_id, bidirectional in relation_candidates:
-        dest_paper_id: Optional[int] = None
-        for key in [normalized_id, raw_id]:
-            if key and key in context.paper_id_cache:
-                dest_paper_id = context.paper_id_cache[key]
-                break
-            if key and key in dest_map:
-                dest_paper_id = dest_map[key]
-                break
-        if dest_paper_id:
-            context.queue_relation(src_paper_id, dest_paper_id, bidirectional)
-        else:
-            keys = [k for k in (normalized_id, raw_id) if k]
-            for key in keys:
-                context.pending_relations[key].append((src_paper_id, bidirectional))
-
-    context.flush_pending_relations()
-    context.flush_relations()
+        context.citation_repository.sync_related_edges(
+            conn,
+            src_paper_id=int(row.paper_id),
+            related_dest_ids=desired_related_dest_ids,
+        )
 OPENALEX_PREFIX_RE = re.compile(r"^https?://(?:www\.)?openalex\.org/", re.IGNORECASE)
 
 
@@ -606,6 +624,7 @@ class LoaderContext:
         self.conn = conn
         self.openalex_type_id = ensure_identifier_type(conn, "openalex")
         self.doi_type_id = ensure_identifier_type(conn, "doi")
+        self.citation_repository = CitationRepository()
         self.author_by_orcid: Dict[str, int] = {}
         self.author_by_name: Dict[str, int] = {}
         self.institution_by_key: Dict[str, int] = {}
@@ -631,6 +650,20 @@ class LoaderContext:
             self.paper_id_cache[key] = paper_id
         for key in keys:
             self._resolve_pending_key(key, paper_id)
+
+    def resolve_pending_citations_for_identifiers(
+        self,
+        paper_id: int,
+        *,
+        identifier_type_id: int,
+        identifiers: Iterable[str],
+    ) -> set[int]:
+        return self.citation_repository.resolve_pending_for_identifiers(
+            self.conn,
+            paper_id=paper_id,
+            identifier_type_id=identifier_type_id,
+            identifiers=identifiers,
+        )
 
     def _resolve_pending_key(self, identifier: str, paper_id: int) -> None:
         pending = self.pending_relations.pop(identifier, [])

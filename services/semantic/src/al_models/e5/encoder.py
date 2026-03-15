@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
@@ -36,6 +37,7 @@ class SemanticEncoder:
 
     def __init__(self, config: EncoderConfig) -> None:
         self.config = config
+        self._lock = threading.RLock()
         self.tokenizer = AutoTokenizer.from_pretrained(config.model_name, use_fast=True)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -59,6 +61,10 @@ class SemanticEncoder:
     def device(self) -> torch.device:
         return self._device
 
+    @property
+    def output_dim(self) -> int:
+        return int(self.model.config.hidden_size)
+
     @torch.inference_mode()
     def embed_query(self, text: str) -> np.ndarray:
         embeddings = self._encode(
@@ -80,28 +86,30 @@ class SemanticEncoder:
         if not texts:
             return np.zeros((0, self.model.config.hidden_size), dtype=np.float32)
 
-        outputs: List[np.ndarray] = []
-        for start in range(0, len(texts), self.config.batch_size):
-            batch_texts = [prefix + t for t in texts[start : start + self.config.batch_size]]
-            encoded = self.tokenizer(
-                batch_texts,
-                padding=True,
-                truncation=True,
-                max_length=max_length,
-                return_tensors="pt",
-            )
-            encoded = {key: value.to(self.device) for key, value in encoded.items()}
-            hidden = self.model(**encoded).last_hidden_state
-            pooled = _mean_pool(hidden, encoded["attention_mask"])
-            pooled = torch.nn.functional.normalize(pooled, p=2, dim=1)
-            outputs.append(pooled.cpu().numpy().astype("float32"))
+        with self._lock:
+            outputs: List[np.ndarray] = []
+            for start in range(0, len(texts), self.config.batch_size):
+                batch_texts = [prefix + t for t in texts[start : start + self.config.batch_size]]
+                encoded = self.tokenizer(
+                    batch_texts,
+                    padding=True,
+                    truncation=True,
+                    max_length=max_length,
+                    return_tensors="pt",
+                )
+                encoded = {key: value.to(self.device) for key, value in encoded.items()}
+                hidden = self.model(**encoded).last_hidden_state
+                pooled = _mean_pool(hidden, encoded["attention_mask"])
+                pooled = torch.nn.functional.normalize(pooled, p=2, dim=1)
+                outputs.append(pooled.cpu().numpy().astype("float32"))
 
         return np.vstack(outputs)
 
     def close(self) -> None:
-        del self.model
-        if torch.cuda.is_available():  # pragma: no cover - safe guard
-            torch.cuda.empty_cache()
+        with self._lock:
+            del self.model
+            if torch.cuda.is_available():  # pragma: no cover - safe guard
+                torch.cuda.empty_cache()
 
 
 __all__ = ["SemanticEncoder", "EncoderConfig"]

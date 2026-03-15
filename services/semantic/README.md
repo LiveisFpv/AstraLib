@@ -1,255 +1,343 @@
 # Сервис семантического поиска ALib
 
-Сервис для семантического поиска научных публикаций на основе корпуса OpenAlex. Тексты статей кодируются трансформером E5, векторный индекс строится в FAISS, метаданные и связи хранятся в PostgreSQL. Доступ к поиску предоставляется по gRPC.
+Сервис индексирует и ищет научные публикации на базе OpenAlex и авторских материалов. Тексты кодируются `intfloat/multilingual-e5-large`, метаданные и граф цитирований хранятся в PostgreSQL, поиск выполняется через FAISS, доступ предоставляется по gRPC.
 
-Ключевые особенности
-- Многоязычная модель: `intfloat/multilingual-e5-large` (поддержка LoRA-адаптера)
-- Векторный индекс FAISS (IVF+PQ или Flat), хранение эмбеддингов в memmap
-- PostgreSQL схема с авторами, организациями, идентификаторами, ссылками и двунаправленными/однонаправленными связями между работами
-- Пайплайн: загрузка OpenAlex -> очистка/нормализация -> загрузка в БД -> генерация эмбеддингов -> построение FAISS индекса
-- gRPC API с методом семантического поиска статей
+Ключевые возможности:
+- семантический поиск по корпусу статей;
+- фоновый ingestion новых работ из `AddPaper` и OpenAlex;
+- mutable weighted FAISS runtime с `paper_id` как внешним ID;
+- инкрементальный пересчёт citation-aware векторов для затронутых 2-hop соседей;
+- хранение базовых эмбеддингов и citation cache в memmap-артефактах.
 
+## Быстрый старт
 
-## Быстрый старт (Docker Compose)
+### Docker Compose
 
-Предустановки
-- Docker и Docker Compose
-- Внешняя сеть для gRPC (если нужна): `docker network create grpc_network`
+Предусловия:
+- Docker Desktop;
+- внешняя сеть `grpc_network`, если она нужна другим сервисам:
+  ```bash
+  docker network create grpc_network
+  ```
 
-1) Отредактируйте `.env` (см. пример в корне репозитория). Важно указать доступ к БД и пути к индексу FAISS:
-   - `FAISS_INDEX_PATH=data/index/faiss_both.index`
-   - `FAISS_DOC_IDS_PATH=data/index/doc_ids_both.npy`
+Минимальные настройки в `.env`:
+- `FAISS_INDEX_PATH=data/index/faiss_both.index`
+- `FAISS_DOC_IDS_PATH=data/index/doc_ids_both.npy`
+- `DB_HOST=postgres`
+- `DB_PORT=5432`
+- `DB_USER`, `DB_PASSWORD`, `DB_NAME`
 
-2) Запустите стек:
-   - `docker compose up -d --build`
-
-3) Проверка состояния:
-   - Сервис gRPC доступен на `localhost:5104`
-   - Логи контейнера: `docker logs -f semantic-search`
-
-В Compose включено:
-- `postgres` (PostgreSQL 17)
-- `migrator` - применяет миграции (`db/migrations`) перед запуском сервиса
-- `semantic-search` - сам gRPC-сервис (см. `cmd/main.py`)
-- `pipeline-worker` (опционально) - фоновый воркер пайплайна (ожидает сигнал)
-
-Примонтированные тома
-- `./data` -> `/app/data` (индексы и артефакты пайплайна)
-- `hf-cache` -> `/cache/huggingface` (кэш моделей HF)
-
-
-## Локальный запуск (без Docker)
-
-Требования
-- Python 3.12
-- Postgres 14+
-
-1) Установите зависимости
+Запуск:
+```bash
+docker compose up -d --build
 ```
+
+Проверка:
+```bash
+docker compose logs -f semantic-service
+```
+
+Compose поднимает:
+- `postgres` с данными сервиса;
+- `migrator`, который применяет все миграции из `db/migrations`;
+- `semantic-service`;
+- `pipeline-worker` для фонового пайплайна.
+
+### Локальный запуск
+
+Требования:
+- Python 3.12;
+- PostgreSQL 14+;
+- установленный FAISS и зависимости из `requirements.txt`.
+
+Установка:
+```powershell
 python -m venv .venv
-. .venv/Scripts/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
-pip install -U pip
-pip install -r requirements.txt
+. .venv\Scripts\Activate.ps1
+python -m pip install -U pip
+python -m pip install -r requirements.txt
 ```
 
-2) Примените миграции БД (варианты)
-- Docker-миграции (проще): `docker compose run --rm migrator`
-- Локально: примените файлы из `db/migrations` вручную или используйте любой совместимый мигратор
-
-3) Укажите переменные окружения (`.env` или env):
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-- `FAISS_INDEX_PATH`, `FAISS_DOC_IDS_PATH` (см. раздел "Данные и индексы")
-
-4) Запустите сервис
+Если база поднята в Docker Compose, для локального запуска обычно нужно переопределить:
+```powershell
+$env:DB_HOST="localhost"
+$env:DB_PORT="15432"
 ```
+
+Запуск сервиса:
+```powershell
 python cmd/main.py
 ```
 
+## Миграции
 
-## Данные и индексы
+Ключевые миграции:
+- `3_ingestion_queue` — очередь ingestion-задач;
+- `4_citation_graph` — таблицы `citation_edges` и `pending_citation_edges`, backfill старых однонаправленных связей.
 
-Готовые артефакты (пример):
-- `data/index/faiss_both.index` - FAISS-индекс
-- `data/index/doc_ids_both.npy` - соответствия позиций в индексе -> `paper_id`
+Если сервис стартует через Compose, миграции применяются автоматически. При локальном запуске их нужно применить вручную или через ваш мигратор.
 
-Если индексов нет, постройте их пайплайном (см. ниже) или положите подготовленные файлы в `data/index` и укажите пути в `.env`.
+## Данные и артефакты
 
+Основные артефакты индекса:
+- `data/index/faiss_both.index` — FAISS-индекс;
+- `data/index/faiss_both.index.meta.json` — meta с типом индекса, `weights`, `id_mode`, путями к артефактам;
+- `data/index/doc_emb_both.f16.memmap` — базовые эмбеддинги;
+- `data/index/doc_ids_both.npy` — row storage `row_idx -> paper_id`;
+- `data/index/citation_cache/*` — `out1/in1/out2/in2` mean memmap и count/degree arrays.
 
-## Пайплайн подготовки данных
+В weighted runtime source of truth для графа цитирований — таблица `citation_edges` в PostgreSQL. Parquet `edges` нужны только для оффлайн-сценариев.
 
-Шаги пайплайна формализованы скриптами в `src/parser` и оркестратором в `scripts/run_pipeline.py`.
+## Ingestion
 
-1) Загрузка OpenAlex (через API)
+### Источники
+
+Сервис умеет ingest:
+- авторские статьи через `AddPaper` после модерации;
+- последние статьи из OpenAlex по расписанию.
+
+### Как работает author ingestion
+
+`AddPaper` больше не является заглушкой. Теперь метод:
+- валидирует входные поля;
+- ставит задачу в очередь ingestion;
+- сразу возвращает `PaperResponse`, где `State=queued:<task_id>`.
+
+Дальше планировщик:
+- забирает задачу из очереди;
+- пишет статью и связи в PostgreSQL;
+- дополняет `citation_edges` или `pending_citation_edges`;
+- инкрементально обновляет FAISS.
+
+### OpenAlex top-up
+
+Если включён `INGESTION_OPENALEX_ENABLED=true`, сервис периодически запрашивает последние работы OpenAlex с ограничением по `limit` и языкам, после чего прогоняет их через тот же ingestion pipeline.
+
+### Переменные ingestion
+
+Очередь и планировщик:
+- `INGESTION_SCHEDULER_ENABLED`
+- `INGESTION_SCHEDULER_POLL_SECONDS`
+- `INGESTION_SCHEDULER_MAX_TASKS`
+- `INGESTION_TASK_STALE_SECONDS`
+- `INGESTION_TASK_RETRY_SECONDS`
+- `INGESTION_TASK_MAX_ATTEMPTS`
+
+OpenAlex:
+- `INGESTION_OPENALEX_ENABLED`
+- `INGESTION_OPENALEX_INTERVAL_SECONDS`
+- `INGESTION_OPENALEX_LIMIT`
+- `INGESTION_OPENALEX_TIMEOUT_SECONDS`
+- `INGESTION_OPENALEX_LANGUAGES`
+- `OPENALEX_EMAIL`
+
+Weighted runtime:
+- `INGESTION_WEIGHTED_RUNTIME_REQUIRED`
+
+Если `INGESTION_WEIGHTED_RUNTIME_REQUIRED=true`, сервис не стартует с несовместимым или немигрированным weighted runtime.
+
+## Построение индекса
+
+### 1. Генерация эмбеддингов
+
+```powershell
+python src/parser/e5_embed_corpus.py `
+  --outdir data/index `
+  --model intfloat/multilingual-e5-large
 ```
-python src/parser/openalex_csv_parser.py \
-  --email you@example.com \
-  --outdir data/raw \
-  --en 1000000 --ru 550000 \
-  --chunk-size 50000 \
-  --gzip --resume
+
+Результат:
+- `doc_embeddings.f16.memmap` или ваш кастомный memmap;
+- `*.shape.json`;
+- `doc_ids.npy`.
+
+### 2. Обычный FAISS без citation-aware runtime
+
+Если нужен plain индекс без weighted runtime:
+```powershell
+python src/parser/e5_build_faiss.py `
+  --emb-dir data/index `
+  --index-type ivfpq `
+  --metric ip `
+  --nlist 4096 `
+  --m 32 `
+  --nbits 8
 ```
 
-2) Очистка и нормализация
+В таком режиме сервис продолжит работать в простом append-only индексе без citation-aware пересчёта.
+
+### 3. Bootstrap mutable weighted runtime
+
+Это рекомендуемый режим для production ingestion с `--weights`.
+
+Пример PowerShell:
+```powershell
+python src/parser/weighted_index_runtime.py bootstrap `
+  --emb-dir data/index `
+  --memfile doc_emb_both.f16.memmap `
+  --doc-ids doc_ids_both.npy `
+  --out data/index/faiss_both.index `
+  --weights "self=1.0,out1=0.0,in1=0.05,out2=0.03,in2=0.025"
 ```
-python src/parser/clean_openalex.py \
-  --indir data/raw \
+
+Что делает bootstrap:
+- при необходимости backfill-ит старые citation relations в `citation_edges`;
+- строит citation cache из БД;
+- пересобирает FAISS в mutable runtime;
+- пишет `id_mode=paper_id` и `weights` в `faiss.index.meta.json`;
+- при миграции старого индекса умеет конвертировать legacy `doc_ids.npy` с OpenAlex string IDs в числовые `paper_id`.
+
+После успешного bootstrap рекомендуется включить:
+```env
+INGESTION_WEIGHTED_RUNTIME_REQUIRED=true
+```
+
+и перезапустить сервис.
+
+### 4. Repair / смена весов
+
+Если нужно восстановить runtime или поменять веса:
+```powershell
+python src/parser/weighted_index_runtime.py repair `
+  --index data/index/faiss_both.index `
+  --weights "self=1.0,out1=0.1,in1=0.07,out2=0.02,in2=0.01"
+```
+
+Важно:
+- runtime читает веса из `faiss.index.meta.json`, а не из env;
+- после `repair` нужен restart сервиса;
+- инкрементальная схема поддерживает `insert + update`, но не delete.
+
+## Citation-aware runtime
+
+В weighted runtime:
+- FAISS хранит `paper_id` как внешний ID;
+- row storage с базовыми эмбеддингами остаётся в memmap;
+- при insert/update статьи сервис пересчитывает только точный affected 2-hop closure по `citation_edges`;
+- для affected узлов заново считаются `out1`, `in1`, `out2`, `in2`;
+- затем выполняется `remove_ids + add_with_ids` для обновлённых `paper_id`.
+
+Если после DB commit обновление индекса падает, ставится dirty marker. В этом состоянии сервис блокирует новые weighted writes до `repair`.
+
+## Подготовка данных OpenAlex
+
+Ручной пайплайн:
+
+1. Загрузка raw OpenAlex:
+```powershell
+python src/parser/openalex_csv_parser.py `
+  --email you@example.com `
+  --outdir data/raw `
+  --en 1000000 `
+  --ru 550000 `
+  --chunk-size 50000 `
+  --gzip `
+  --resume
+```
+
+2. Очистка:
+```powershell
+python src/parser/clean_openalex.py `
+  --indir data/raw `
   --outdir data/processed
 ```
 
-3) Загрузка в PostgreSQL
-```
-python src/parser/load_openalex_to_db.py \
+3. Загрузка в БД:
+```powershell
+python src/parser/load_openalex_to_db.py `
   --indir data/processed
 ```
 
-4) Генерация эмбеддингов (E5)
-```
-python src/parser/e5_embed_corpus.py \
-  --outdir data/index \
-  [--where "language = 'en'" | другие SQL-фильтры] \
-  [--limit 100000] \
-  [--model intfloat/multilingual-e5-large] \
-  [--lora-dir path/to/lora]
-```
-Результат: `doc_embeddings.f16.memmap` (+ `.shape.json`) и `doc_ids.npy` в указанной директории.
-
-5) Построение FAISS-индекса
-```
-python src/parser/e5_build_faiss.py \
-  --emb-dir data/index \
-  --index-type ivfpq \
-  --metric ip \
-  --nlist 4096 --m 32 --nbits 8
-```
-Результат: `faiss.index` (+ `.meta.json`) в `data/index`. Эти пути затем указываются в `.env`.
-
-6) Построение FAISS-индекса с учетом цитирований (экспериментально)
-```
-python src/parser/build_edges.py --indir data/processed --outdir data/graph
-```
-Результат: `edges_en.parquet` и `edges_ru.parquet` в указанной директории.
-```
-python src/parser/e5_build_faiss.py `
-  --emb-dir .\data\index `
-  --memfile doc_emb_both.f16.memmap `
-  --doc-ids doc_ids_both.npy `
-  --edges .\data\graph\edges_en.parquet .\data\graph\edges_ru.parquet `
-  --weights "self=1.0,out1=0.0,in1=0.05,out2=0.03,in2=0.025" `
-  --out .\data\index\faiss_citation.index
-```
-Результат: `faiss_citation.index` (+ `.meta.json`) в `data/index`. Эти пути затем указываются в `.env`.
-Подборка весов может быть произведена при помощи `scripts/bench.py`
-
-Оркестратор пайплайна
-- `scripts/run_pipeline.py --mode once` запустит последовательность шагов из `src/pipeline/runner.py`.
-- `scripts/run_pipeline.py --mode serve` запустит `PipelineWorker`, который ждёт POSIX-сигнал и по событию запускает пайплайн.
+`build_edges.py` по-прежнему полезен для оффлайн-экспериментов с parquet `edges`, но для runtime bootstrap он больше не обязателен: сервис строит citation cache напрямую из PostgreSQL.
 
 ## gRPC API
 
 Proto: `proto/service.proto`
-- Пакет: `semantic`
-- Сервис: `SemanticService`
-- RPC:
-  - `SearchPaper(SearchRequest) -> PapersResponse`
-  - `AddPaper(AddRequest) -> AddPaperResponse`
 
-Сообщения
-- `SearchRequest` - поле `Input_data: string` (текст запроса)
-- `PaperResponse` - `ID, Title, Abstract, Year, Best_oa_location`
-- `PapersResponse` - repeated `PaperResponse Papers`
-- `AddRequest` - поля статьи + списки `Referenced_works`/`Related_works` (идентификаторы OpenAlex). Сервер пока не реализует сохранение, метод возвращает `Error = ""`.
+Ключевые RPC:
+- `SearchPaper(SearchRequest) -> ChatMessage`
+- `AddPaper(AddRequest) -> PaperResponse`
 
-Пример клиента (Python)
-```
-import grpc
-from src.http.grpc import service_pb2, service_pb2_grpc
+### SearchPaper
 
-channel = grpc.insecure_channel("localhost:5104")
-stub = service_pb2_grpc.SemanticServiceStub(channel)
-resp = stub.SearchPaper(service_pb2.SearchRequest(Input_data="graph neural networks for chemistry"))
-for p in resp.Papers:
-    print(p.Title, p.Year, p.Best_oa_location)
-```
+Ожидает:
+- `Input_data`
+- `Chat_id`
+- `User_id`
 
-Генерация по proto
+Сервис:
+- кодирует запрос E5;
+- ищет ближайшие статьи в FAISS;
+- пишет сообщение в историю чата;
+- возвращает `ChatMessage` с `papers`.
 
-```
-python -m grpc_tools.protoc `
-  -I proto `
-  --python_out=src/http/grpc `
-  --grpc_python_out=src/http/grpc `
-  --pyi_out=src/http/grpc `
-  proto/service.proto
-```
+### AddPaper
 
-## Конфигурация (переменные окружения)
+Ожидает:
+- `ID` — опциональный идентификатор статьи;
+- `Title`, `Abstract`, `Year`, `Best_oa_location`;
+- `Referenced_works`, `Related_works`.
 
-Основные переменные (`.env`):
-- Логи и сервис: `LOG_LEVEL`, `LOGSTASH_HOST`, `LOGSTASH_PORT`, `SEMANTIC_PORT`
-- БД: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SSLMode`
-- Индекс и модель: `FAISS_INDEX_PATH`, `FAISS_DOC_IDS_PATH`, `EMBEDDING_MODEL_NAME`, `EMBEDDING_BATCH_SIZE`, `EMBEDDING_LORA_PATH`
-- Пайплайн: `DATA_ROOT`, `PIPELINE_RAW_DIR`, `PIPELINE_PROCESSED_DIR`, `PIPELINE_INDEX_DIR`, `OPENALEX_EMAIL`, `PIPELINE_OPENALEX_EN`, `PIPELINE_OPENALEX_RU`, `PIPELINE_OPENALEX_CHUNK`
+Результат:
+- статья ставится в ingestion queue;
+- в ответе возвращается исходный `PaperResponse`;
+- поле `State` содержит `queued:<task_id>`.
 
-Значения по умолчанию можно посмотреть в `src/config/config.py` и `src/pipeline/settings.py`.
+Неразрешённые ссылки не теряются: они сохраняются в `pending_citation_edges` и автоматически разрешаются, когда целевая статья появится позже.
 
+## Конфигурация
 
-## Архитектура и ключевые компоненты
+Основные переменные:
+- сервис и логирование: `LOG_LEVEL`, `LOGSTASH_HOST`, `LOGSTASH_PORT`, `SEMANTIC_PORT`
+- база: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `SSLMode`
+- индекс и модель: `FAISS_INDEX_PATH`, `FAISS_DOC_IDS_PATH`, `EMBEDDING_MODEL_NAME`, `EMBEDDING_BATCH_SIZE`, `EMBEDDING_LORA_PATH`
+- ingestion: см. раздел выше
+- pipeline: `PIPELINE_OPENALEX_EN`, `PIPELINE_OPENALEX_RU`, `PIPELINE_OPENALEX_CHUNK`
 
-- Вход: текст запроса -> кодируется E5 (`SemanticEncoder`) -> поиск ближайших соседей в FAISS (`FaissIndex`) -> извлечение метаданных из Postgres (`PaperRepository`) -> ответ gRPC.
+Значения по умолчанию смотрите в:
+- `src/config/config.py`
+- `src/services/ingestion/settings.py`
+- `src/pipeline/settings.py`
 
-Исходники:
-- Точка входа сервиса: `cmd/main.py`
-- gRPC сервер и обработчики: `src/http/grpc/grpc_server.py`, `src/http/grpc/grpc_handler.py`, `proto/service.proto`
-- Поиск: `src/services/search/faiss_index.py`, `src/services/search/faiss_searcher.py`, `src/services/search/search.py`
-- Модель E5: `src/al_models/e5/encoder.py`
-- Доступ к БД: `src/storage/paper_repository.py`, `src/db/connection.py`
-- Пайплайн: `src/pipeline/runner.py`, `src/pipeline/worker.py`, скрипты в `src/parser/*`
-- Схема БД и миграции: `db/migrations`, (также референс `crebas.sql`)
+## Архитектура
 
-
-## Тонкости и производительность
-
-- GPU: при наличии CUDA PyTorch выберет GPU автоматически; на CPU генерация эмбеддингов заметно медленнее. Для CUDA-колёс используйте документацию PyTorch (см. комментарий в `requirements.txt`).
-- EMBEDDING_BATCH_SIZE: можно увеличить на GPU, уменьшать на CPU при нехватке памяти.
-- Тип индекса: для больших корпусов используйте `ivfpq` с тренировкой на поднаборах (`--train-size`). Для максимальной точности - `flat`.
-
+Основные компоненты:
+- `cmd/main.py` — точка входа;
+- `src/http/grpc/*` — gRPC API;
+- `src/services/search/*` — поиск;
+- `src/services/ingestion/*` — очередь, scheduler, OpenAlex client, weighted runtime;
+- `src/storage/*` — доступ к PostgreSQL;
+- `src/parser/*` — оффлайн pipeline и утилиты bootstrap/repair;
+- `db/migrations/*` — схема базы и миграции.
 
 ## Тестирование и отладка
 
-- Быстрая проверка индекса оффлайн: `src/parser/e5_test_search.py`
-- Healthcheck сервиса: `scripts/healthcheck.py`
+Полезные команды:
 
+Синтаксическая проверка:
+```powershell
+python -m compileall src cmd tests
+```
 
-## Структура репозитория (кратко)
+Юнит-тесты pure math для citation-aware recompute:
+```powershell
+pytest tests/test_citation_math.py
+```
 
-- `cmd/main.py` - запуск gRPC-сервиса
-- `proto/service.proto` - описание API
-- `src/services/search/*` - поиск (FAISS, ранжирование, сервис)
-- `src/al_models/e5/*` - обёртка над моделью E5
-- `src/storage/*`, `src/db/*` - работа с БД
-- `src/parser/*` - скрипты пайплайна (OpenAlex -> БД -> эмбеддинги -> индекс)
-- `db/migrations` - миграции PostgreSQL
-- `docker-compose.yml`, `Dockerfile` - контейнеризация
-- `scripts/*` - утилиты (pipeline runner, healthcheck)
+Healthcheck:
+```powershell
+python scripts/healthcheck.py
+```
 
+Быстрая оффлайн-проверка поиска:
+```powershell
+python src/parser/e5_test_search.py
+```
 
-## Ограничения и планы
+## Ограничения
 
-- `AddPaper` пока не реализован сервером (заглушка в `grpc_handler.py`), запись в БД/индекс требует отдельной реализации.
-- Реализация создания чатов, хранения истории и ее получения
-- Постройка индекса с опорой на внешнее цитирование, а не только на текстовое содержание
-
-
-## Ссылки на исходники
-
-- Точка входа: `cmd/main.py:1`
-- gRPC proto: `proto/service.proto:1`
-- FAISS обёртка: `src/services/search/faiss_index.py:1`
-- Поисковик: `src/services/search/faiss_searcher.py:1`
-- Сервис поиска: `src/services/search/search.py:1`
-- Репозиторий статей: `src/storage/paper_repository.py:1`
-- Конфигурация: `src/config/config.py:1`
-- Пайплайн раннер: `src/pipeline/runner.py:1`
-- Сборка эмбеддингов: `src/parser/e5_embed_corpus.py:1`
-- Построение индекса: `src/parser/e5_build_faiss.py:1`
-
+- инкрементальный weighted runtime поддерживает `insert + update`, но не `delete`;
+- IVF/PQ не retrain-ится на каждом апдейте, для этого нужен оффлайн rebuild/repair;
+- смена weights требует `repair` или нового bootstrap;
+- если runtime помечен как dirty, новые weighted writes блокируются до восстановления;
+- если вы запускаете локальные скрипты против Dockerized Postgres, используйте `DB_HOST=localhost` и `DB_PORT=15432`.

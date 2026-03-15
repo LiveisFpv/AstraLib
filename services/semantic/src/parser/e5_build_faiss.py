@@ -6,13 +6,20 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 import faiss
 import numpy as np
+import psycopg
 import pyarrow.parquet as pq
 from tqdm import tqdm
+from psycopg.rows import dict_row
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.append(str(ROOT_DIR))
 
 from src.parser.citation_cache import (
     CITATION_CACHE_VERSION,
@@ -91,6 +98,55 @@ def artifact_ref(base_dir: Path, path: Path | None) -> str | None:
         return str(path)
 
 
+def load_or_resolve_doc_ids(doc_ids_path: Path, *, mutable_runtime: bool) -> np.ndarray:
+    doc_ids = np.load(doc_ids_path, allow_pickle=True)
+    try:
+        return np.asarray(doc_ids, dtype=np.int64)
+    except (TypeError, ValueError):
+        if not mutable_runtime:
+            return doc_ids
+        resolved = resolve_legacy_doc_ids_to_paper_ids(doc_ids)
+        tmp_path = doc_ids_path.with_name(f"{doc_ids_path.name}.tmp")
+        with open(tmp_path, "wb") as file_obj:
+            np.save(file_obj, resolved.astype(np.int64, copy=False))
+        os.replace(tmp_path, doc_ids_path)
+        return resolved
+
+
+def resolve_legacy_doc_ids_to_paper_ids(doc_ids: np.ndarray, *, chunk_size: int = 10_000) -> np.ndarray:
+    values = [str(doc_id).strip() for doc_id in doc_ids.tolist()]
+    if not values:
+        return np.empty((0,), dtype=np.int64)
+
+    repository = CitationRepository()
+    mapping: dict[str, int] = {}
+    with psycopg.connect(repository.dsn, row_factory=dict_row) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            for start in range(0, len(values), chunk_size):
+                chunk = list(dict.fromkeys(values[start : start + chunk_size]))
+                cur.execute(
+                    """
+                    SELECT pi.identifier, pi.paper_id
+                    FROM paper_identifiers pi
+                    JOIN identifier_types it
+                      ON it.identifier_type_id = pi.identifier_type_id
+                    WHERE it.name = 'openalex'
+                      AND pi.identifier = ANY(%s)
+                    """,
+                    (chunk,),
+                )
+                for row in cur.fetchall():
+                    mapping[str(row["identifier"])] = int(row["paper_id"])
+
+    missing = [value for value in values if value not in mapping]
+    if missing:
+        sample = ", ".join(missing[:5])
+        raise RuntimeError(
+            f"Failed to resolve {len(missing)} legacy doc_ids to paper_id; sample: {sample}"
+        )
+    return np.asarray([mapping[value] for value in values], dtype=np.int64)
+
+
 def create_index(
     *,
     dim: int,
@@ -158,7 +214,7 @@ def build_faiss_index(
     dirty_marker_name: str | None = None,
 ) -> dict[str, object]:
     embeddings, n_vecs, dim = load_memmap(mem_path)
-    doc_ids = np.load(doc_ids_path, allow_pickle=False)
+    doc_ids = load_or_resolve_doc_ids(doc_ids_path, mutable_runtime=mutable_runtime)
     if len(doc_ids) != n_vecs:
         raise RuntimeError("Document IDs count does not match embeddings count")
 

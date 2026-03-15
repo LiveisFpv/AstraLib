@@ -39,17 +39,17 @@ class FaissIndex:
             self.doc_ids = np.empty((0,), dtype=np.int64)
             self._persist_locked()
 
-        self._doc_id_set = {int(doc_id) for doc_id in self.doc_ids.tolist()}
+        self._doc_id_set = {self._normalize_doc_id(doc_id) for doc_id in self.doc_ids.tolist()}
 
         if self.id_mode == "position" and self.index.ntotal != len(self.doc_ids):
             raise RuntimeError("FAISS index vector count does not match doc_ids length")
 
-    def search(self, vector: np.ndarray, top_k: int) -> Tuple[List[int], List[float]]:
+    def search(self, vector: np.ndarray, top_k: int) -> Tuple[List[Any], List[float]]:
         if vector.ndim == 1:
             vector = vector.reshape(1, -1)
         with self._lock:
             scores, indices = self.index.search(vector.astype("float32"), top_k)
-            matched_ids: List[int] = []
+            matched_ids: List[Any] = []
             matched_scores: List[float] = []
             for idx, score in zip(indices[0], scores[0]):
                 if idx < 0:
@@ -57,13 +57,13 @@ class FaissIndex:
                 if self.id_mode == "paper_id":
                     matched_ids.append(int(idx))
                 else:
-                    matched_ids.append(int(self.doc_ids[idx]))
+                    matched_ids.append(self._normalize_doc_id(self.doc_ids[idx]))
                 matched_scores.append(float(score))
             return matched_ids, matched_scores
 
     def contains_doc_id(self, doc_id: int) -> bool:
         with self._lock:
-            return int(doc_id) in self._doc_id_set
+            return self._normalize_doc_id(doc_id) in self._doc_id_set
 
     def add_documents(self, doc_ids: List[int], vectors: np.ndarray) -> int:
         if not doc_ids:
@@ -131,7 +131,7 @@ class FaissIndex:
     def sync_doc_ids(self, doc_ids: np.ndarray) -> None:
         with self._lock:
             self.doc_ids = np.asarray(doc_ids, dtype=np.int64)
-            self._doc_id_set = {int(doc_id) for doc_id in self.doc_ids.tolist()}
+            self._doc_id_set = {self._normalize_doc_id(doc_id) for doc_id in self.doc_ids.tolist()}
 
     def set_meta(self, meta: dict[str, Any]) -> None:
         with self._lock:
@@ -163,7 +163,7 @@ class FaissIndex:
 
         faiss.write_index(self.index, str(index_tmp))
         with open(doc_ids_tmp, "wb") as file_obj:
-            np.save(file_obj, self.doc_ids.astype(np.int64, copy=False))
+            np.save(file_obj, self.doc_ids)
 
         os.replace(index_tmp, self.index_path)
         os.replace(doc_ids_tmp, self.doc_ids_path)
@@ -179,6 +179,25 @@ class FaissIndex:
         with open(self.meta_path, "r", encoding="utf-8") as meta_file:
             data = json.load(meta_file)
         return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _normalize_doc_id(doc_id: Any) -> Any:
+        if isinstance(doc_id, np.generic):
+            doc_id = doc_id.item()
+        if isinstance(doc_id, bytes):
+            doc_id = doc_id.decode("utf-8", errors="ignore")
+        if isinstance(doc_id, str):
+            text = doc_id.strip()
+            if not text:
+                return text
+            try:
+                return int(text)
+            except ValueError:
+                return text
+        try:
+            return int(doc_id)
+        except (TypeError, ValueError):
+            return str(doc_id)
 
 
 __all__ = ["FaissIndex"]

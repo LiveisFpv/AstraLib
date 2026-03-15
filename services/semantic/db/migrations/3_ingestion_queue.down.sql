@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP TABLE IF EXISTS ingestion_tasks;
+
+COMMIT;

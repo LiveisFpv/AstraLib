@@ -1,14 +1,32 @@
-from src.lib.logger import Logger
+from __future__ import annotations
+
+import math
+
+import grpc
+
+from src.domain.models.chat import ChatMessage, ChatModel
+from src.domain.models.paper import PaperModel
+from src.domain.models.submission import SubmissionModel
 from src.http.grpc import service_pb2, service_pb2_grpc
-from src.services.search.search_service import SearchService
+from src.http.grpc.auth import (
+    ROLE_MODERATOR,
+    AuthenticationError,
+    AuthorizationError,
+    RequestAuthContext,
+    extract_auth_context,
+)
+from src.lib.logger import Logger
 from src.services.chat_service import ChatService
 from src.services.ingestion.ingestion_service import IngestionService
-from src.services.ingestion.models import AuthorSubmission
+from src.services.search.search_service import SearchService
+from src.services.submission_service import (
+    SubmissionNotFoundError,
+    SubmissionPermissionError,
+    SubmissionService,
+    SubmissionStateError,
+    SubmissionValidationError,
+)
 from src.services.user_service import UserService
-from src.domain.models.chat import ChatModel, ChatMessage
-from src.domain.models.paper import PaperModel
-import grpc
-import math
 
 
 class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
@@ -19,14 +37,15 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
         user_service: UserService,
         logger: Logger,
         ingestion_service: IngestionService | None = None,
+        submission_service: SubmissionService | None = None,
     ):
         self.logger = logger
         self.search_service = search_service
         self.user_service = user_service
         self.chat_service = chat_service
         self.ingestion_service = ingestion_service
+        self.submission_service = submission_service
 
-    # ! TODO add handlers for chat and user services
     def SearchPaper(self, request: service_pb2.SearchRequest, context: grpc.ServicerContext) -> service_pb2.ChatMessage:
         self.logger.info(f"SearchPaper request: {request.Input_data}")
         try:
@@ -36,21 +55,17 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
                 context.set_details("missing argument chatID")
                 return service_pb2.ChatMessage()
 
-            # ! Check user id for chat id
             if not self.chat_service.is_chat_owner(request.Chat_id, request.User_id):
                 context.set_code(grpc.StatusCode.PERMISSION_DENIED)
                 return service_pb2.ChatMessage()
 
             matching_papers = self.search_service.search_paper(request.Input_data)
-
             res = self.chat_service.record_chat_message(
                 request.Chat_id,
                 request.Input_data,
                 matching_papers,
             )
-            message = self._chat_message_to_proto(res)
-            return message
-
+            return self._chat_message_to_proto(res)
         except Exception as e:
             self.logger.error("SearchPaper failed", error=str(e))
             context.set_code(grpc.StatusCode.INTERNAL)
@@ -58,45 +73,262 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
             return service_pb2.ChatMessage()
 
     def AddPaper(self, request: service_pb2.AddRequest, context: grpc.ServicerContext) -> service_pb2.PaperResponse:
-        self.logger.info(f"AddPaper request: {request.Title}")
-
-        if self.ingestion_service is None:
+        self.logger.info(f"AddPaper compatibility request: {request.Title}")
+        if self.submission_service is None:
             context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-            context.set_details("ingestion service is not configured")
-            return service_pb2.PaperResponse()
-
-        title = request.Title.strip()
-        abstract = request.Abstract.strip()
-        if not title and not abstract:
-            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-            context.set_details("paper must contain title or abstract")
+            context.set_details("submission service is not configured")
             return service_pb2.PaperResponse()
 
         try:
-            submission = AuthorSubmission(
-                identifier=request.ID or None,
-                title=title,
-                abstract=abstract,
+            auth = self._require_auth(context)
+            submission = self.submission_service.create_or_submit_compat_submission(
+                user_id=auth.user_id,
+                source_identifier=request.ID or None,
+                title=request.Title,
+                abstract=request.Abstract,
                 year=int(request.Year) if request.Year else None,
                 best_oa_location=request.Best_oa_location or None,
                 referenced_works=[item.ID for item in request.Referenced_works],
                 related_works=[item.ID for item in request.Related_works],
-                state=request.State or "approved",
             )
-            task_id = self.ingestion_service.enqueue_author_submission(submission)
             return service_pb2.PaperResponse(
                 ID=request.ID,
-                Title=title,
-                Abstract=abstract,
+                Title=(request.Title or "").strip(),
+                Abstract=(request.Abstract or "").strip(),
                 Year=request.Year,
                 Best_oa_location=request.Best_oa_location,
-                State=f"queued:{task_id}",
+                State=f"pending:{submission.submission_id}",
             )
-        except Exception as e:
-            self.logger.error("AddPaper failed", error=str(e))
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
-            return service_pb2.PaperResponse()
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.PaperResponse(),
+                log_message="AddPaper compatibility failed",
+            )
+
+    def CreateMySubmission(
+        self,
+        request: service_pb2.CreateMySubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionResponse:
+        try:
+            auth = self._require_auth(context)
+            submission = self._require_submission_service().create_my_submission(
+                user_id=auth.user_id,
+                source_identifier=request.Source_identifier or None,
+                title=request.Title,
+                abstract=request.Abstract,
+                year=int(request.Year) if request.Year else None,
+                best_oa_location=request.Best_oa_location or None,
+                referenced_works=list(request.Referenced_works),
+                related_works=list(request.Related_works),
+            )
+            return service_pb2.SubmissionResponse(Submission=self._submission_to_proto(submission))
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionResponse(),
+                log_message="CreateMySubmission failed",
+            )
+
+    def UpdateMySubmission(
+        self,
+        request: service_pb2.UpdateMySubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionResponse:
+        try:
+            auth = self._require_auth(context)
+            submission = self._require_submission_service().update_my_submission(
+                user_id=auth.user_id,
+                submission_id=int(request.Submission_id),
+                source_identifier=request.Source_identifier or None,
+                title=request.Title,
+                abstract=request.Abstract,
+                year=int(request.Year) if request.Year else None,
+                best_oa_location=request.Best_oa_location or None,
+                referenced_works=list(request.Referenced_works),
+                related_works=list(request.Related_works),
+            )
+            return service_pb2.SubmissionResponse(Submission=self._submission_to_proto(submission))
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionResponse(),
+                log_message="UpdateMySubmission failed",
+            )
+
+    def DeleteMySubmission(
+        self,
+        request: service_pb2.DeleteMySubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.ErrorResponse:
+        try:
+            auth = self._require_auth(context)
+            self._require_submission_service().delete_my_submission(
+                user_id=auth.user_id,
+                submission_id=int(request.Submission_id),
+            )
+            return service_pb2.ErrorResponse()
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.ErrorResponse(),
+                log_message="DeleteMySubmission failed",
+            )
+
+    def GetMySubmission(
+        self,
+        request: service_pb2.GetMySubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionResponse:
+        try:
+            auth = self._require_auth(context)
+            submission = self._require_submission_service().get_my_submission(
+                user_id=auth.user_id,
+                submission_id=int(request.Submission_id),
+            )
+            return service_pb2.SubmissionResponse(Submission=self._submission_to_proto(submission))
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionResponse(),
+                log_message="GetMySubmission failed",
+            )
+
+    def ListMySubmissions(
+        self,
+        request: service_pb2.ListMySubmissionsRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionListResponse:
+        try:
+            auth = self._require_auth(context)
+            items, total, limit, offset = self._require_submission_service().list_my_submissions(
+                user_id=auth.user_id,
+                statuses=list(request.Statuses),
+                limit=int(request.Limit),
+                offset=int(request.Offset),
+            )
+            return self._submission_list_to_proto(items, total=total, limit=limit, offset=offset)
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionListResponse(),
+                log_message="ListMySubmissions failed",
+            )
+
+    def SubmitMySubmission(
+        self,
+        request: service_pb2.SubmitMySubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionResponse:
+        try:
+            auth = self._require_auth(context)
+            submission = self._require_submission_service().submit_my_submission(
+                user_id=auth.user_id,
+                submission_id=int(request.Submission_id),
+            )
+            return service_pb2.SubmissionResponse(Submission=self._submission_to_proto(submission))
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionResponse(),
+                log_message="SubmitMySubmission failed",
+            )
+
+    def ListModerationQueue(
+        self,
+        request: service_pb2.ListModerationQueueRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionListResponse:
+        try:
+            self._require_moderator(context)
+            items, total, limit, offset = self._require_submission_service().list_moderation_queue(
+                statuses=list(request.Statuses),
+                limit=int(request.Limit),
+                offset=int(request.Offset),
+            )
+            return self._submission_list_to_proto(items, total=total, limit=limit, offset=offset)
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionListResponse(),
+                log_message="ListModerationQueue failed",
+            )
+
+    def GetModerationSubmission(
+        self,
+        request: service_pb2.GetModerationSubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionResponse:
+        try:
+            self._require_moderator(context)
+            submission = self._require_submission_service().get_moderation_submission(
+                submission_id=int(request.Submission_id),
+            )
+            return service_pb2.SubmissionResponse(Submission=self._submission_to_proto(submission))
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionResponse(),
+                log_message="GetModerationSubmission failed",
+            )
+
+    def UpdateModerationSubmission(
+        self,
+        request: service_pb2.UpdateModerationSubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionResponse:
+        try:
+            self._require_moderator(context)
+            submission = self._require_submission_service().update_moderation_submission(
+                submission_id=int(request.Submission_id),
+                source_identifier=request.Source_identifier or None,
+                title=request.Title,
+                abstract=request.Abstract,
+                year=int(request.Year) if request.Year else None,
+                best_oa_location=request.Best_oa_location or None,
+                referenced_works=list(request.Referenced_works),
+                related_works=list(request.Related_works),
+            )
+            return service_pb2.SubmissionResponse(Submission=self._submission_to_proto(submission))
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionResponse(),
+                log_message="UpdateModerationSubmission failed",
+            )
+
+    def ModerateSubmission(
+        self,
+        request: service_pb2.ModerateSubmissionRequest,
+        context: grpc.ServicerContext,
+    ) -> service_pb2.SubmissionResponse:
+        try:
+            auth = self._require_moderator(context)
+            submission = self._require_submission_service().moderate_submission(
+                submission_id=int(request.Submission_id),
+                moderator_user_id=auth.user_id,
+                action=request.Action,
+                comment=request.Comment or None,
+            )
+            return service_pb2.SubmissionResponse(Submission=self._submission_to_proto(submission))
+        except Exception as exc:
+            return self._handle_submission_exception(
+                context,
+                exc,
+                empty_response=service_pb2.SubmissionResponse(),
+                log_message="ModerateSubmission failed",
+            )
 
     def CreateNewChat(self, request: service_pb2.Chat, context: grpc.ServicerContext) -> service_pb2.ChatResp:
         self.logger.info(f"CreateNewChat request: user_id={request.User_id}")
@@ -112,7 +344,6 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
     def GetChatHistory(self, request: service_pb2.HistoryReq, context: grpc.ServicerContext) -> service_pb2.HistoryResp:
         self.logger.info(f"GetChatHistory request: chat_id={request.Chat_id}")
         try:
-            # ! Check user id for chat id
             if not self.chat_service.is_chat_owner(request.Chat_id, request.User_id):
                 context.set_code(grpc.StatusCode.PERMISSION_DENIED)
                 return service_pb2.HistoryResp()
@@ -190,6 +421,39 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
     def AddInstitution(self, request: service_pb2.Institution, context: grpc.ServicerContext) -> service_pb2.ErrorResponse:
         return super().AddInstitution(request, context)
 
+    def _require_auth(self, context: grpc.ServicerContext) -> RequestAuthContext:
+        return extract_auth_context(context, user_service=self.user_service)
+
+    def _require_moderator(self, context: grpc.ServicerContext) -> RequestAuthContext:
+        auth = self._require_auth(context)
+        auth.require_role(ROLE_MODERATOR)
+        return auth
+
+    def _require_submission_service(self) -> SubmissionService:
+        if self.submission_service is None:
+            raise RuntimeError("submission service is not configured")
+        return self.submission_service
+
+    def _handle_submission_exception(self, context: grpc.ServicerContext, exc: Exception, *, empty_response, log_message: str):
+        if isinstance(exc, AuthenticationError):
+            code = grpc.StatusCode.UNAUTHENTICATED
+        elif isinstance(exc, (AuthorizationError, SubmissionPermissionError)):
+            code = grpc.StatusCode.PERMISSION_DENIED
+        elif isinstance(exc, SubmissionNotFoundError):
+            code = grpc.StatusCode.NOT_FOUND
+        elif isinstance(exc, SubmissionValidationError):
+            code = grpc.StatusCode.INVALID_ARGUMENT
+        elif isinstance(exc, SubmissionStateError):
+            code = grpc.StatusCode.FAILED_PRECONDITION
+        elif isinstance(exc, RuntimeError) and str(exc) == "submission service is not configured":
+            code = grpc.StatusCode.UNIMPLEMENTED
+        else:
+            code = grpc.StatusCode.INTERNAL
+        self.logger.error(log_message, error=str(exc))
+        context.set_code(code)
+        context.set_details(str(exc))
+        return empty_response
+
     @staticmethod
     def _to_str(value) -> str:
         try:
@@ -220,6 +484,46 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
             Year=cls._to_int(paper.Year),
             Best_oa_location=cls._to_str(paper.Best_oa_location),
         )
+
+    @classmethod
+    def _submission_to_proto(cls, submission: SubmissionModel) -> service_pb2.SubmissionRecord:
+        return service_pb2.SubmissionRecord(
+            Submission_id=cls._to_int(submission.submission_id),
+            Created_by_user_id=cls._to_int(submission.created_by_user_id),
+            Source_identifier=cls._to_str(submission.source_identifier),
+            Title=cls._to_str(submission.title),
+            Abstract=cls._to_str(submission.abstract),
+            Year=cls._to_int(submission.year),
+            Best_oa_location=cls._to_str(submission.best_oa_location),
+            Referenced_works=list(submission.referenced_works),
+            Related_works=list(submission.related_works),
+            Status=cls._to_str(submission.status),
+            Moderated_by_user_id=cls._to_int(submission.moderated_by_user_id),
+            Moderation_comment=cls._to_str(submission.moderation_comment),
+            Approved_paper_id=cls._to_int(submission.approved_paper_id),
+            Created_at=cls._to_str(submission.created_at),
+            Updated_at=cls._to_str(submission.updated_at),
+            Submitted_at=cls._to_str(submission.submitted_at),
+            Moderated_at=cls._to_str(submission.moderated_at),
+        )
+
+    @classmethod
+    def _submission_list_to_proto(
+        cls,
+        submissions: list[SubmissionModel],
+        *,
+        total: int,
+        limit: int,
+        offset: int,
+    ) -> service_pb2.SubmissionListResponse:
+        response = service_pb2.SubmissionListResponse(
+            Total=cls._to_int(total),
+            Limit=cls._to_int(limit),
+            Offset=cls._to_int(offset),
+        )
+        for submission in submissions:
+            response.Items.append(cls._submission_to_proto(submission))
+        return response
 
     @classmethod
     def _chat_to_proto(cls, chat: ChatModel) -> service_pb2.Chat:

@@ -13,3 +13,11 @@ class UserService:
 
     def get_user(self, user_id:int)->Optional[UserModel]:
         return self.repository.get_user(user_id)
+
+    def ensure_user(self, user_id: int) -> UserModel:
+        existing = self.repository.get_user(user_id)
+        if existing is not None:
+            return existing
+        user = UserModel(user_id)
+        self.repository.create_user(user)
+        return user

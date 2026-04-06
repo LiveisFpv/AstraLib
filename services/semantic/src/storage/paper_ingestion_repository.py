@@ -63,6 +63,7 @@ class PaperIngestionRepository:
                 year=submission.year,
                 type_value=state,
                 created_at=None,
+                created_by_user_id=submission.created_by_user_id,
             )
 
             seed_paper_ids: set[int] = {int(paper_id)}

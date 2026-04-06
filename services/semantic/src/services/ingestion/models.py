@@ -8,6 +8,7 @@ from typing import Any
 
 
 SOURCE_AUTHOR_SUBMISSION = "author_submission"
+SOURCE_APPROVED_SUBMISSION = "approved_submission"
 
 TASK_STATUS_PENDING = "pending"
 TASK_STATUS_PROCESSING = "processing"
@@ -58,6 +59,7 @@ class AuthorSubmission:
     referenced_works: list[str] = field(default_factory=list)
     related_works: list[str] = field(default_factory=list)
     state: str = DEFAULT_AUTHOR_STATE
+    created_by_user_id: int | None = None
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -69,6 +71,7 @@ class AuthorSubmission:
             "referenced_works": list(self.referenced_works),
             "related_works": list(self.related_works),
             "state": _clean_string(self.state) or DEFAULT_AUTHOR_STATE,
+            "created_by_user_id": self.created_by_user_id,
         }
 
     @classmethod
@@ -83,6 +86,7 @@ class AuthorSubmission:
             referenced_works=_clean_string_list(payload.get("referenced_works")),
             related_works=_clean_string_list(payload.get("related_works")),
             state=_clean_string(payload.get("state")) or DEFAULT_AUTHOR_STATE,
+            created_by_user_id=_clean_year(payload.get("created_by_user_id")),
         )
 
 
@@ -150,6 +154,7 @@ __all__ = [
     "IngestionTask",
     "OpenAlexPaper",
     "SOURCE_AUTHOR_SUBMISSION",
+    "SOURCE_APPROVED_SUBMISSION",
     "StoredPaper",
     "TASK_STATUS_COMPLETED",
     "TASK_STATUS_FAILED",

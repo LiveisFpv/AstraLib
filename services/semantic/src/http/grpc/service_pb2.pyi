@@ -207,3 +207,171 @@ class ErrorResponse(_message.Message):
     ERROR_FIELD_NUMBER: _ClassVar[int]
     Error: str
     def __init__(self, Error: _Optional[str] = ...) -> None: ...
+
+class SubmissionRecord(_message.Message):
+    __slots__ = ("Submission_id", "Created_by_user_id", "Source_identifier", "Title", "Abstract", "Year", "Best_oa_location", "Referenced_works", "Related_works", "Status", "Moderated_by_user_id", "Moderation_comment", "Approved_paper_id", "Created_at", "Updated_at", "Submitted_at", "Moderated_at")
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_USER_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    ABSTRACT_FIELD_NUMBER: _ClassVar[int]
+    YEAR_FIELD_NUMBER: _ClassVar[int]
+    BEST_OA_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    REFERENCED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    RELATED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    MODERATED_BY_USER_ID_FIELD_NUMBER: _ClassVar[int]
+    MODERATION_COMMENT_FIELD_NUMBER: _ClassVar[int]
+    APPROVED_PAPER_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    SUBMITTED_AT_FIELD_NUMBER: _ClassVar[int]
+    MODERATED_AT_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    Created_by_user_id: int
+    Source_identifier: str
+    Title: str
+    Abstract: str
+    Year: int
+    Best_oa_location: str
+    Referenced_works: _containers.RepeatedScalarFieldContainer[str]
+    Related_works: _containers.RepeatedScalarFieldContainer[str]
+    Status: str
+    Moderated_by_user_id: int
+    Moderation_comment: str
+    Approved_paper_id: int
+    Created_at: str
+    Updated_at: str
+    Submitted_at: str
+    Moderated_at: str
+    def __init__(self, Submission_id: _Optional[int] = ..., Created_by_user_id: _Optional[int] = ..., Source_identifier: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., Referenced_works: _Optional[_Iterable[str]] = ..., Related_works: _Optional[_Iterable[str]] = ..., Status: _Optional[str] = ..., Moderated_by_user_id: _Optional[int] = ..., Moderation_comment: _Optional[str] = ..., Approved_paper_id: _Optional[int] = ..., Created_at: _Optional[str] = ..., Updated_at: _Optional[str] = ..., Submitted_at: _Optional[str] = ..., Moderated_at: _Optional[str] = ...) -> None: ...
+
+class SubmissionResponse(_message.Message):
+    __slots__ = ("Submission",)
+    SUBMISSION_FIELD_NUMBER: _ClassVar[int]
+    Submission: SubmissionRecord
+    def __init__(self, Submission: _Optional[_Union[SubmissionRecord, _Mapping]] = ...) -> None: ...
+
+class SubmissionListResponse(_message.Message):
+    __slots__ = ("Items", "Total", "Limit", "Offset")
+    ITEMS_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    Items: _containers.RepeatedCompositeFieldContainer[SubmissionRecord]
+    Total: int
+    Limit: int
+    Offset: int
+    def __init__(self, Items: _Optional[_Iterable[_Union[SubmissionRecord, _Mapping]]] = ..., Total: _Optional[int] = ..., Limit: _Optional[int] = ..., Offset: _Optional[int] = ...) -> None: ...
+
+class CreateMySubmissionRequest(_message.Message):
+    __slots__ = ("Source_identifier", "Title", "Abstract", "Year", "Best_oa_location", "Referenced_works", "Related_works")
+    SOURCE_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    ABSTRACT_FIELD_NUMBER: _ClassVar[int]
+    YEAR_FIELD_NUMBER: _ClassVar[int]
+    BEST_OA_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    REFERENCED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    RELATED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    Source_identifier: str
+    Title: str
+    Abstract: str
+    Year: int
+    Best_oa_location: str
+    Referenced_works: _containers.RepeatedScalarFieldContainer[str]
+    Related_works: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, Source_identifier: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., Referenced_works: _Optional[_Iterable[str]] = ..., Related_works: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class UpdateMySubmissionRequest(_message.Message):
+    __slots__ = ("Submission_id", "Source_identifier", "Title", "Abstract", "Year", "Best_oa_location", "Referenced_works", "Related_works")
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    ABSTRACT_FIELD_NUMBER: _ClassVar[int]
+    YEAR_FIELD_NUMBER: _ClassVar[int]
+    BEST_OA_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    REFERENCED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    RELATED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    Source_identifier: str
+    Title: str
+    Abstract: str
+    Year: int
+    Best_oa_location: str
+    Referenced_works: _containers.RepeatedScalarFieldContainer[str]
+    Related_works: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, Submission_id: _Optional[int] = ..., Source_identifier: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., Referenced_works: _Optional[_Iterable[str]] = ..., Related_works: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class DeleteMySubmissionRequest(_message.Message):
+    __slots__ = ("Submission_id",)
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    def __init__(self, Submission_id: _Optional[int] = ...) -> None: ...
+
+class GetMySubmissionRequest(_message.Message):
+    __slots__ = ("Submission_id",)
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    def __init__(self, Submission_id: _Optional[int] = ...) -> None: ...
+
+class ListMySubmissionsRequest(_message.Message):
+    __slots__ = ("Statuses", "Limit", "Offset")
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    Statuses: _containers.RepeatedScalarFieldContainer[str]
+    Limit: int
+    Offset: int
+    def __init__(self, Statuses: _Optional[_Iterable[str]] = ..., Limit: _Optional[int] = ..., Offset: _Optional[int] = ...) -> None: ...
+
+class SubmitMySubmissionRequest(_message.Message):
+    __slots__ = ("Submission_id",)
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    def __init__(self, Submission_id: _Optional[int] = ...) -> None: ...
+
+class ListModerationQueueRequest(_message.Message):
+    __slots__ = ("Statuses", "Limit", "Offset")
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    Statuses: _containers.RepeatedScalarFieldContainer[str]
+    Limit: int
+    Offset: int
+    def __init__(self, Statuses: _Optional[_Iterable[str]] = ..., Limit: _Optional[int] = ..., Offset: _Optional[int] = ...) -> None: ...
+
+class GetModerationSubmissionRequest(_message.Message):
+    __slots__ = ("Submission_id",)
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    def __init__(self, Submission_id: _Optional[int] = ...) -> None: ...
+
+class UpdateModerationSubmissionRequest(_message.Message):
+    __slots__ = ("Submission_id", "Source_identifier", "Title", "Abstract", "Year", "Best_oa_location", "Referenced_works", "Related_works")
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    ABSTRACT_FIELD_NUMBER: _ClassVar[int]
+    YEAR_FIELD_NUMBER: _ClassVar[int]
+    BEST_OA_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    REFERENCED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    RELATED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    Source_identifier: str
+    Title: str
+    Abstract: str
+    Year: int
+    Best_oa_location: str
+    Referenced_works: _containers.RepeatedScalarFieldContainer[str]
+    Related_works: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, Submission_id: _Optional[int] = ..., Source_identifier: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., Referenced_works: _Optional[_Iterable[str]] = ..., Related_works: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ModerateSubmissionRequest(_message.Message):
+    __slots__ = ("Submission_id", "Action", "Comment")
+    SUBMISSION_ID_FIELD_NUMBER: _ClassVar[int]
+    ACTION_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    Submission_id: int
+    Action: str
+    Comment: str
+    def __init__(self, Submission_id: _Optional[int] = ..., Action: _Optional[str] = ..., Comment: _Optional[str] = ...) -> None: ...

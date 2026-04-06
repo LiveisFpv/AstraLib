@@ -26,12 +26,14 @@ from src.services.ingestion.weighted_index import maybe_create_weighted_index_ma
 from src.services.search.faiss_index import FaissIndex
 from src.services.search.faiss_searcher import FaissSearcher
 from src.services.search.search_service import SearchService
+from src.services.submission_service import SubmissionService
 from src.storage.citation_repository import CitationRepository
 from src.services.user_service import UserService
 from src.storage.chat_repository import ChatRepository
 from src.storage.ingestion_repository import IngestionRepository
 from src.storage.paper_ingestion_repository import PaperIngestionRepository
 from src.storage.paper_repository import PaperRepository
+from src.storage.submission_repository import SubmissionRepository
 from src.storage.user_repository import UserRepository
 
 
@@ -57,6 +59,7 @@ def main() -> None:
     ingestion_repository = IngestionRepository()
     citation_repository = CitationRepository()
     paper_ingestion_repository = PaperIngestionRepository(citation_repository=citation_repository)
+    submission_repository = SubmissionRepository()
     weighted_index_manager = maybe_create_weighted_index_manager(
         index=index,
         encoder=encoder,
@@ -74,6 +77,7 @@ def main() -> None:
         logger=logger,
         openalex_client=openalex_client,
         weighted_index_manager=weighted_index_manager,
+        submission_repository=submission_repository,
     )
     ingestion_scheduler = IngestionScheduler(
         service=ingestion_service,
@@ -87,6 +91,10 @@ def main() -> None:
     chat_repo = ChatRepository()
     user_service = UserService(user_repo)
     chat_service = ChatService(chat_repo, user_service)
+    submission_service = SubmissionService(
+        submission_repository,
+        task_max_attempts=ingestion_settings.task_max_attempts,
+    )
 
     service = SemanticServiceGrpc(
         search_service,
@@ -94,6 +102,7 @@ def main() -> None:
         user_service,
         logger,
         ingestion_service,
+        submission_service,
     )
     try:
         service.serve(SEMANTIC_PORT)

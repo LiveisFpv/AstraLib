@@ -65,6 +65,16 @@ watch(
 )
 
 watch(
+  () => route.query.saved,
+  async (value) => {
+    if (value !== 'draft') return
+    successMsg.value = t('papers.okSaved')
+    await router.replace({ name: 'paper-edit', params: { id: currentId.value } })
+  },
+  { immediate: true },
+)
+
+watch(
   () => paper.value,
   (value) => {
     if (!value) return
@@ -235,7 +245,7 @@ function goBack() {
           <fieldset :disabled="!canEdit || saving">
             <label>
               <span>{{ t('paperAdd.title') }}</span>
-              <input type="text" v-model="form.title" required />
+              <input type="text" v-model="form.title" />
             </label>
             <label>
               <span>{{ t('paperAdd.abstract') }}</span>

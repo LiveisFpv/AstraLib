@@ -62,8 +62,17 @@ async function saveDraft() {
   errorMsg.value = ''
   try {
     saving.value = true
+    const isNewDraft = !currentSubmissionId.value
     const submission = await paperStore.saveDraft(buildPayload())
     currentSubmissionId.value = submission.id
+    if (isNewDraft) {
+      await router.replace({
+        name: 'paper-edit',
+        params: { id: submission.id },
+        query: { saved: 'draft' },
+      })
+      return
+    }
     successMsg.value = t('papers.okSaved')
   } catch (e: any) {
     errorMsg.value = e?.message || t('papers.errSave')
@@ -105,7 +114,7 @@ async function submitForReview() {
       <form class="form" @submit.prevent="submitForReview">
         <label>
           <span>{{ t('paperAdd.title') }}</span>
-          <input type="text" v-model="form.title" placeholder="Enter a title" required />
+          <input type="text" v-model="form.title" placeholder="Enter a title" />
         </label>
         <label>
           <span>{{ t('paperAdd.abstract') }}</span>

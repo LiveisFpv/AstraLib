@@ -91,11 +91,11 @@ func NewHTTPServer(conf *config.Config, a *app.App) *Server {
 	chat.Use(middlewares.AuthMiddleware(a))
 	ChatRouter(chat, a)
 
-	submissions := s.app.Group("/api/submissions/")
+	submissions := s.app.Group("/api/submissions")
 	submissions.Use(middlewares.AuthWithRolesMiddleware(a))
 	SubmissionsRouter(submissions, a)
 
-	moderation := s.app.Group("/api/moderation/submissions/")
+	moderation := s.app.Group("/api/moderation/submissions")
 	moderation.Use(
 		middlewares.AuthWithRolesMiddleware(a),
 		middlewares.RequireAnyRole("MODERATOR", "ADMIN"),

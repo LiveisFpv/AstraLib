@@ -26,19 +26,19 @@ const router = createRouter({
       path: '/paper/my',
       name: 'my-papers',
       component: MyPapersView,
-      meta: { requiresAuth: true, roles: ['USER', 'AUTHOR'] },
+      meta: { requiresAuth: true },
     },
     {
       path: '/paper/:id/edit',
       name: 'paper-edit',
       component: PaperEditView,
-      meta: { requiresAuth: true, roles: ['USER', 'AUTHOR'] },
+      meta: { requiresAuth: true },
     },
     { path: '/paper/:uid', component: PaperView },
     {
       path: '/paper/add',
       component: PaperAddView,
-      meta: { requiresAuth: true, roles: ['USER', 'AUTHOR'] },
+      meta: { requiresAuth: true },
     },
     {
       path: '/admin',
@@ -81,23 +81,8 @@ router.beforeEach(async (to) => {
     } catch {}
   }
 
-  // Restrict search for admin/moderator roles
   const isAdmin: boolean = userRoles.includes('ADMIN')
   const isModerator: boolean = userRoles.includes('MODERATOR')
-  const isSearchRoute = to.path === '/' || to.path.startsWith('/search')
-  if ((isAdmin || isModerator) && isSearchRoute) {
-    return { path: isAdmin ? '/admin' : '/moderator', replace: true }
-  }
-  // Hard restrict visible pages for ADMIN/MODERATOR to their dashboards
-  if (isAdmin || isModerator) {
-    const openPaths = new Set<string>(['/auth', '/settings', '/profile'])
-    const adminAllowed = new Set<string>(['/admin', '/moderator'])
-    const moderatorAllowed = new Set<string>(['/moderator'])
-    const allowed = isAdmin ? adminAllowed : moderatorAllowed
-    if (!allowed.has(to.path) && !openPaths.has(to.path)) {
-      return { path: isAdmin ? '/admin' : '/moderator', replace: true }
-    }
-  }
   // Enforce role-based access if route defines roles
   const requiredRoles = required
   if (requiredRoles && requiredRoles.length) {

@@ -1,26 +1,5 @@
 basePath: /api
 definitions:
-  presenters.AddPaperRequest:
-    properties:
-      abstract:
-        type: string
-      best_oa_location:
-        type: string
-      id:
-        type: string
-      referenced_paper:
-        items:
-          $ref: '#/definitions/presenters.ReferencedPaper'
-        type: array
-      related_paper:
-        items:
-          $ref: '#/definitions/presenters.RelatedPaper'
-        type: array
-      title:
-        type: string
-      year:
-        type: integer
-    type: object
   presenters.ChatHistoryCreateRequest:
     properties:
       text:
@@ -76,6 +55,13 @@ definitions:
       error:
         type: string
     type: object
+  presenters.ModerateSubmissionRequest:
+    properties:
+      action:
+        type: string
+      comment:
+        type: string
+    type: object
   presenters.Paper:
     properties:
       abstract:
@@ -91,15 +77,85 @@ definitions:
       year:
         type: integer
     type: object
-  presenters.ReferencedPaper:
+  presenters.SubmissionListResponse:
     properties:
-      id:
-        type: string
+      items:
+        items:
+          $ref: '#/definitions/presenters.SubmissionRecord'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
     type: object
-  presenters.RelatedPaper:
+  presenters.SubmissionRecord:
     properties:
-      id:
+      abstract:
         type: string
+      approved_paper_id:
+        type: integer
+      best_oa_location:
+        type: string
+      created_at:
+        type: string
+      created_by_user_id:
+        type: integer
+      moderated_at:
+        type: string
+      moderated_by_user_id:
+        type: integer
+      moderation_comment:
+        type: string
+      referenced_works:
+        items:
+          type: string
+        type: array
+      related_works:
+        items:
+          type: string
+        type: array
+      source_identifier:
+        type: string
+      status:
+        type: string
+      submission_id:
+        type: integer
+      submitted_at:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+      year:
+        type: integer
+    type: object
+  presenters.SubmissionResponse:
+    properties:
+      submission:
+        $ref: '#/definitions/presenters.SubmissionRecord'
+    type: object
+  presenters.SubmissionUpsertRequest:
+    properties:
+      abstract:
+        type: string
+      best_oa_location:
+        type: string
+      referenced_works:
+        items:
+          type: string
+        type: array
+      related_works:
+        items:
+          type: string
+        type: array
+      source_identifier:
+        type: string
+      title:
+        type: string
+      year:
+        type: integer
     type: object
 host: localhost:8080
 info:
@@ -108,48 +164,6 @@ info:
   title: ALib API
   version: "0.1"
 paths:
-  /ai/paper/add:
-    post:
-      consumes:
-      - application/json
-      description: Add a paper to the index
-      parameters:
-      - description: Paper data
-        in: body
-        name: data
-        required: true
-        schema:
-          $ref: '#/definitions/presenters.AddPaperRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/presenters.Paper'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/presenters.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/presenters.ErrorResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/presenters.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/presenters.ErrorResponse'
-        "502":
-          description: Bad Gateway
-          schema:
-            $ref: '#/definitions/presenters.ErrorResponse'
-      summary: Add paper
-      tags:
-      - paper
   /chats:
     get:
       consumes:
@@ -398,4 +412,451 @@ paths:
       summary: Add chat history entry
       tags:
       - chat
+  /moderation/submissions:
+    get:
+      description: List submissions for moderation
+      parameters:
+      - collectionFormat: csv
+        description: Submission statuses
+        in: query
+        items:
+          type: string
+        name: status
+        type: array
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: List moderation queue
+      tags:
+      - moderation
+  /moderation/submissions/{submission_id}:
+    get:
+      description: Get a single submission for moderation
+      parameters:
+      - description: Submission ID
+        in: path
+        name: submission_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Get moderation submission
+      tags:
+      - moderation
+    put:
+      consumes:
+      - application/json
+      description: Replace staged submission data while it is under moderation
+      parameters:
+      - description: Submission ID
+        in: path
+        name: submission_id
+        required: true
+        type: integer
+      - description: Submission payload
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/presenters.SubmissionUpsertRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Update moderation submission
+      tags:
+      - moderation
+  /moderation/submissions/{submission_id}/moderate:
+    post:
+      consumes:
+      - application/json
+      description: Approve or reject a submission
+      parameters:
+      - description: Submission ID
+        in: path
+        name: submission_id
+        required: true
+        type: integer
+      - description: Moderation decision
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/presenters.ModerateSubmissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Moderate submission
+      tags:
+      - moderation
+  /submissions:
+    get:
+      description: List submissions created by the authenticated user
+      parameters:
+      - collectionFormat: csv
+        description: Submission statuses
+        in: query
+        items:
+          type: string
+        name: status
+        type: array
+      - description: Page size
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: List my submissions
+      tags:
+      - submissions
+    post:
+      consumes:
+      - application/json
+      description: Create a new author submission draft
+      parameters:
+      - description: Submission payload
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/presenters.SubmissionUpsertRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Create submission draft
+      tags:
+      - submissions
+  /submissions/{submission_id}:
+    delete:
+      description: Delete a draft or rejected submission of the authenticated user
+      parameters:
+      - description: Submission ID
+        in: path
+        name: submission_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Delete my submission
+      tags:
+      - submissions
+    get:
+      description: Get a single submission created by the authenticated user
+      parameters:
+      - description: Submission ID
+        in: path
+        name: submission_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Get my submission
+      tags:
+      - submissions
+    put:
+      consumes:
+      - application/json
+      description: Replace the current staged data of an authenticated user's submission
+      parameters:
+      - description: Submission ID
+        in: path
+        name: submission_id
+        required: true
+        type: integer
+      - description: Submission payload
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/presenters.SubmissionUpsertRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Update my submission
+      tags:
+      - submissions
+  /submissions/{submission_id}/submit:
+    post:
+      description: Move a submission to moderation queue
+      parameters:
+      - description: Submission ID
+        in: path
+        name: submission_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/presenters.SubmissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/presenters.ErrorResponse'
+      summary: Submit draft for review
+      tags:
+      - submissions
 swagger: "2.0"

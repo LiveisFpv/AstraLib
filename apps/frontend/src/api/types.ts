@@ -127,20 +127,56 @@ export interface PaperResponse {
   state?: string
 }
 
-export interface AddPaperRequest {
-  abstract?: string
-  best_oa_location?: string
-  id?: string
-  referenced_paper?: ReferencedPaper[]
-  related_paper?: RelatedPaper[]
+export type SubmissionStatus = 'draft' | 'pending' | 'approved' | 'rejected'
+
+export interface SubmissionRecord {
+  submission_id: number
+  created_by_user_id: number
+  source_identifier?: string
   title?: string
+  abstract?: string
   year?: number
+  best_oa_location?: string
+  referenced_works: string[]
+  related_works: string[]
+  status: SubmissionStatus
+  moderated_by_user_id?: number
+  moderation_comment?: string
+  approved_paper_id?: number
+  created_at?: string
+  updated_at?: string
+  submitted_at?: string
+  moderated_at?: string
 }
 
-export interface RelatedPaper {
-  id?: string
+export interface SubmissionResponse {
+  submission: SubmissionRecord
 }
 
-export interface ReferencedPaper {
-  id?: string
+export interface SubmissionListResponse {
+  items: SubmissionRecord[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface SubmissionListQuery {
+  statuses?: SubmissionStatus[]
+  limit?: number
+  offset?: number
+}
+
+export interface SubmissionUpsertRequest {
+  source_identifier?: string
+  title?: string
+  abstract?: string
+  year?: number
+  best_oa_location?: string
+  referenced_works: string[]
+  related_works: string[]
+}
+
+export interface ModerateSubmissionRequest {
+  action: 'approve' | 'reject'
+  comment?: string
 }

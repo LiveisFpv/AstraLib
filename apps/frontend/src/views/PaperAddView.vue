@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import UpTab from '@/components/UpTab.vue'
 import LeftTab from '@/components/LeftTab.vue'
-import { AlibApi } from '@/api/useAlibApi'
 import { useI18n } from '@/i18n'
 import { usePaperStore } from '@/stores/paperStore'
 import { useLayoutInset } from '@/composables/useLayoutInset'
@@ -22,7 +22,9 @@ const form = reactive({
 const saving = ref(false)
 const successMsg = ref('')
 const errorMsg = ref('')
+const currentSubmissionId = ref<string | null>(null)
 const { t } = useI18n()
+const router = useRouter()
 const paperStore = usePaperStore()
 const { LeftTabHidden: leftHidden, layoutInset } = useLayoutInset()
 
@@ -39,7 +41,38 @@ function removeReferenced(i: number) {
   form.referenced_paper.splice(i, 1)
 }
 
-async function submit() {
+function buildPayload() {
+  return {
+    id: currentSubmissionId.value || undefined,
+    title: form.title.trim() || undefined,
+    abstract: form.abstract.trim() || undefined,
+    year: Number(form.year) || undefined,
+    best_oa_location: form.best_oa_location.trim() || undefined,
+    related_paper: form.related_paper
+      .filter((r) => r.id.trim())
+      .map((r) => ({ id: r.id.trim() })),
+    referenced_paper: form.referenced_paper
+      .filter((r) => r.id.trim())
+      .map((r) => ({ id: r.id.trim() })),
+  }
+}
+
+async function saveDraft() {
+  successMsg.value = ''
+  errorMsg.value = ''
+  try {
+    saving.value = true
+    const submission = await paperStore.saveDraft(buildPayload())
+    currentSubmissionId.value = submission.id
+    successMsg.value = t('papers.okSaved')
+  } catch (e: any) {
+    errorMsg.value = e?.message || t('papers.errSave')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function submitForReview() {
   successMsg.value = ''
   errorMsg.value = ''
   if (!form.title.trim()) {
@@ -48,38 +81,10 @@ async function submit() {
   }
   try {
     saving.value = true
-    await AlibApi.addPaper({
-      title: form.title.trim(),
-      abstract: form.abstract.trim() || undefined,
-      year: Number(form.year) || undefined,
-      best_oa_location: form.best_oa_location || undefined,
-      related_paper: form.related_paper
-        .filter((r) => r.id.trim())
-        .map((r) => ({ id: r.id.trim() })),
-      referenced_paper: form.referenced_paper
-        .filter((r) => r.id.trim())
-        .map((r) => ({ id: r.id.trim() })),
-    })
-    await paperStore.savePaper({
-      title: form.title.trim(),
-      abstract: form.abstract.trim() || undefined,
-      year: Number(form.year) || undefined,
-      best_oa_location: form.best_oa_location || undefined,
-      related_paper: form.related_paper
-        .filter((r) => r.id.trim())
-        .map((r) => ({ id: r.id.trim() })),
-      referenced_paper: form.referenced_paper
-        .filter((r) => r.id.trim())
-        .map((r) => ({ id: r.id.trim() })),
-      status: 'PENDING',
-    })
+    const submission = await paperStore.submitPaper(buildPayload())
+    currentSubmissionId.value = submission.id
     successMsg.value = t('paperAdd.okSubmitted')
-    // reset minimal fields
-    form.title = ''
-    form.abstract = ''
-    form.best_oa_location = ''
-    form.related_paper = []
-    form.referenced_paper = []
+    await router.push({ name: 'paper-edit', params: { id: submission.id } })
   } catch (e: any) {
     errorMsg.value = e?.message || t('paperAdd.errSubmit')
   } finally {
@@ -97,7 +102,7 @@ async function submit() {
   >
     <div class="container">
       <h2>{{ t('paperAdd.header') }}</h2>
-      <form class="form" @submit.prevent="submit">
+      <form class="form" @submit.prevent="submitForReview">
         <label>
           <span>{{ t('paperAdd.title') }}</span>
           <input type="text" v-model="form.title" placeholder="Enter a title" required />
@@ -153,6 +158,9 @@ async function submit() {
         </div>
 
         <div class="actions">
+          <button class="btn" type="button" :disabled="saving" @click="saveDraft">
+            {{ saving ? t('common.loading') : t('common.save') }}
+          </button>
           <button class="btn primary" type="submit" :disabled="saving">
             {{ saving ? t('common.submitting') : t('common.submit') }}
           </button>

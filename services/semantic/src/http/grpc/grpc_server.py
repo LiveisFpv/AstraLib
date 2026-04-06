@@ -6,6 +6,7 @@ from src.http.grpc import service_pb2_grpc
 from src.services.chat_service import ChatService
 from src.services.ingestion.ingestion_service import IngestionService
 from src.services.search.search_service import SearchService
+from src.services.submission_service import SubmissionService
 from src.services.user_service import UserService
 from src.http.grpc.grpc_handler import SemanticServiceHandlerGrpc
 
@@ -18,6 +19,7 @@ class SemanticServiceGrpc:
         user_service: UserService,
         logger: Logger,
         ingestion_service: IngestionService | None = None,
+        submission_service: SubmissionService | None = None,
     ):
         self.logger = logger
         self.logger.info("Starting grpc server")
@@ -30,6 +32,7 @@ class SemanticServiceGrpc:
             user_service,
             logger,
             ingestion_service,
+            submission_service,
         )
 
     def serve(self, port=50051):

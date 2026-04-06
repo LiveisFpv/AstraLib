@@ -9,6 +9,7 @@ from src.lib.logger import Logger
 from src.services.ingestion.models import (
     AuthorSubmission,
     IngestionDelta,
+    SOURCE_APPROVED_SUBMISSION,
     SOURCE_AUTHOR_SUBMISSION,
 )
 from src.services.ingestion.openalex_client import OpenAlexClient
@@ -17,6 +18,7 @@ from src.services.ingestion.weighted_index import CitationIndexManager
 from src.services.search.faiss_index import FaissIndex
 from src.storage.ingestion_repository import IngestionRepository
 from src.storage.paper_ingestion_repository import PaperIngestionRepository
+from src.storage.submission_repository import SubmissionRepository
 
 
 class IngestionService:
@@ -31,6 +33,7 @@ class IngestionService:
         logger: Logger,
         openalex_client: OpenAlexClient | None = None,
         weighted_index_manager: CitationIndexManager | None = None,
+        submission_repository: SubmissionRepository | None = None,
     ) -> None:
         self.queue_repository = queue_repository
         self.paper_repository = paper_repository
@@ -40,6 +43,7 @@ class IngestionService:
         self.logger = logger
         self.openalex_client = openalex_client
         self.weighted_index_manager = weighted_index_manager
+        self.submission_repository = submission_repository
 
     def enqueue_author_submission(self, submission: AuthorSubmission) -> int:
         task = self.queue_repository.enqueue_task(
@@ -106,16 +110,37 @@ class IngestionService:
         return result
 
     def _process_task(self, source: str, payload: dict[str, Any]) -> dict[str, Any]:
-        if source != SOURCE_AUTHOR_SUBMISSION:
-            raise RuntimeError(f"Unsupported ingestion source: {source}")
+        if source == SOURCE_AUTHOR_SUBMISSION:
+            submission = AuthorSubmission.from_payload(payload)
+            delta = self.paper_repository.upsert_author_submission(submission)
+            indexed_count = self._index_delta(delta)
+            return {
+                "paper_id": delta.stored_papers[0].paper_id if delta.stored_papers else None,
+                "indexed_count": indexed_count,
+            }
 
-        submission = AuthorSubmission.from_payload(payload)
-        delta = self.paper_repository.upsert_author_submission(submission)
-        indexed_count = self._index_delta(delta)
-        return {
-            "paper_id": delta.stored_papers[0].paper_id if delta.stored_papers else None,
-            "indexed_count": indexed_count,
-        }
+        if source == SOURCE_APPROVED_SUBMISSION:
+            if self.submission_repository is None:
+                raise RuntimeError("submission repository is not configured")
+            submission_id = payload.get("submission_id")
+            if submission_id in (None, ""):
+                raise RuntimeError("approved submission task payload must contain submission_id")
+            author_submission = self.submission_repository.build_author_submission_for_publication(int(submission_id))
+            delta = self.paper_repository.upsert_author_submission(author_submission)
+            indexed_count = self._index_delta(delta)
+            paper_id = delta.stored_papers[0].paper_id if delta.stored_papers else None
+            if paper_id is not None:
+                self.submission_repository.mark_publication_completed(
+                    submission_id=int(submission_id),
+                    approved_paper_id=int(paper_id),
+                )
+            return {
+                "submission_id": int(submission_id),
+                "paper_id": paper_id,
+                "indexed_count": indexed_count,
+            }
+
+        raise RuntimeError(f"Unsupported ingestion source: {source}")
 
     def _index_delta(self, delta: IngestionDelta) -> int:
         if not delta.stored_papers and not delta.seed_paper_ids:

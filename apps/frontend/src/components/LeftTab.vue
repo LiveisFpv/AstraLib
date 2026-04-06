@@ -19,12 +19,7 @@ const toastStore = useToastStore()
 const { history: chats, activeChatId } = storeToRefs(chatStore)
 const { LeftTabHidden } = storeToRefs(settingStore)
 const leftTabHidden = LeftTabHidden
-const canAuthorAccess = computed(
-  () =>
-    !!authStore.User &&
-    (authStore.isUserRole || authStore.isWriterRole) &&
-    !(authStore.isAdmin || authStore.isModerator),
-)
+const canAuthorAccess = computed(() => !!authStore.User)
 function toggleLeftTab() {
   settingStore.HideLeftTab()
 }
@@ -268,7 +263,7 @@ onBeforeUnmount(() => {
       <!-- Moderator access -->
       <button
         class="btn-menu btn"
-        v-if="authStore.User && authStore.isModerator"
+        v-if="authStore.User && (authStore.isModerator || authStore.isAdmin)"
         @click="RedirecttoModerator"
       >
         <div class="icon-text">
@@ -289,31 +284,20 @@ onBeforeUnmount(() => {
         </div>
       </button>
 
-      <!-- Search controls hidden for admin/moderator -->
-      <button
-        class="btn-menu btn"
-        @click="handleNewSearch"
-        v-if="!(authStore.User && (authStore.isAdmin || authStore.isModerator))"
-      >
+      <button class="btn-menu btn" @click="handleNewSearch">
         <div class="icon-text">
           <img src="/src/assets/plus-line-icon.svg" alt="" class="logo" />
           <p v-if="!leftTabHidden">{{ t('nav.newSearch') }}</p>
         </div>
       </button>
-      <button
-        class="btn-menu btn"
-        v-if="!(authStore.User && (authStore.isAdmin || authStore.isModerator))"
-      >
+      <button class="btn-menu btn">
         <div class="icon-text">
           <img src="/src/assets/search-icon.svg" alt="" class="logo" />
           <p v-if="!leftTabHidden">{{ t('nav.searchChats') }}</p>
         </div>
       </button>
     </div>
-    <div
-      class="menu history"
-      v-if="!leftTabHidden && !(authStore.User && (authStore.isAdmin || authStore.isModerator))"
-    >
+    <div class="menu history" v-if="!leftTabHidden">
       <label for="menu" class="label">{{ t('nav.history') }}</label>
       <template v-if="chats.length">
         <div

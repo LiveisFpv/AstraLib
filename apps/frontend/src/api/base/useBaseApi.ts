@@ -74,7 +74,8 @@ export class ApiError extends Error {
 
 function normalizeApiError(err: AxiosError) {
   const status = err.response?.status
-  const message = (err.response?.data as any)?.message || err.message || 'Request failed'
+  const payload = (err.response?.data as any) ?? {}
+  const message = payload.error || payload.message || err.message || 'Request failed'
   const details = err.response?.data
   return new ApiError(message, status, details)
 }

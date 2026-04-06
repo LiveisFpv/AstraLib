@@ -1,6 +1,6 @@
 ﻿# ALib Frontend
 
-Фронтенд веб‑приложения на Vue 3 для интеллектуального поиска и управления публикациями со входом через SSO, ролями (USER/AUTHOR, MODERATOR, ADMIN), страницами профиля и разделами. Проект собран на Vite и TypeScript, использует Pinia, Vue Router и Axios.
+Фронтенд веб‑приложения на Vue 3 для интеллектуального поиска и управления публикациями со входом через SSO, ролями (USER/AUTHOR, MODERATOR, ADMIN), кабинетом автора и очередью модерации. Проект собран на Vite и TypeScript, использует Pinia, Vue Router и Axios.
 
 ## Стек
 
@@ -75,7 +75,7 @@ Nginx раздаёт статику на http://localhost (порт 80).
   - `src/api/base/useBaseApi.ts` — клиент для SSO с перехватом 401 → refresh.
   - `src/api/base/useAlibApi.ts` — клиент для ALib API.
   - `src/api/useSSOApi.ts` — методы SSO.
-  - `src/api/useAlibApi.ts` — методы чатов/поиска/добавления статей.
+  - `src/api/useAlibApi.ts` — методы чатов, author submissions и moderation.
 - `src/views/` — страницы приложения.
 - `src/components/` — UI‑компоненты (панели, чат, тосты, диалоги).
 - `src/i18n.ts` — простая i18n (en/ru).
@@ -104,6 +104,20 @@ VITE_ALIB_API_URL=http://domain/api
 1. Соберите проект: `npm run build` — результат в `dist/`.
 2. Раздавайте как статический сайт (Nginx/Apache/облако).
 3. Для продакшна используйте `.env.production` и корректно настройте CORS/куки на бэкенде.
+
+## Submission workflow
+
+- Авторские страницы работают через `/api/submissions`:
+  - создание и обновление черновиков;
+  - отправка на модерацию;
+  - просмотр статусов `draft | pending | approved | rejected`;
+  - удаление только `draft` и `rejected`.
+- Модераторская панель работает через `/api/moderation/submissions`:
+  - загрузка очереди;
+  - редактирование staged-данных;
+  - комментарий модератора;
+  - `approve` / `reject`.
+- Источник ролей на клиенте — SSO `/auth/authenticate`.
 
 ## Лицензия
 

@@ -3,7 +3,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import UpTab from '@/components/UpTab.vue'
 import LeftTab from '@/components/LeftTab.vue'
-import { usePaperStore, type PaperStatus } from '@/stores/paperStore'
+import { usePaperStore, type PaperPayload, type PaperStatus } from '@/stores/paperStore'
 import { locale, useI18n } from '@/i18n'
 import { useLayoutInset } from '@/composables/useLayoutInset'
 
@@ -22,10 +22,10 @@ const successMsg = ref('')
 const errorMsg = ref('')
 
 const statusKeyMap: Record<PaperStatus, string> = {
-  DRAFT: 'papers.status.draft',
-  PENDING: 'papers.status.pending',
-  REJECTED: 'papers.status.rejected',
-  APPROVED: 'papers.status.approved',
+  draft: 'papers.status.draft',
+  pending: 'papers.status.pending',
+  rejected: 'papers.status.rejected',
+  approved: 'papers.status.approved',
 }
 
 const form = reactive({
@@ -39,10 +39,40 @@ const form = reactive({
 
 const paper = computed(() => paperStore.getById(currentId.value))
 const canEdit = computed(() => (paper.value ? paperStore.canEdit(paper.value.id) : false))
+const canDelete = computed(() => (paper.value ? paperStore.canDelete(paper.value.id) : false))
 const statusLabel = computed(() => {
-  const status = paper.value?.status ?? 'DRAFT'
+  const status = paper.value?.status ?? 'draft'
   return t(statusKeyMap[status])
 })
+
+watch(
+  currentId,
+  async (value) => {
+    if (!value) return
+    loading.value = true
+    errorMsg.value = ''
+    try {
+      await paperStore.fetchSubmission(value)
+    } catch (e: any) {
+      if (!paperStore.getById(value)) {
+        errorMsg.value = e?.message || t('papers.errNotFound')
+      }
+    } finally {
+      loading.value = false
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => route.query.saved,
+  async (value) => {
+    if (value !== 'draft') return
+    successMsg.value = t('papers.okSaved')
+    await router.replace({ name: 'paper-edit', params: { id: currentId.value } })
+  },
+  { immediate: true },
+)
 
 watch(
   () => paper.value,
@@ -58,25 +88,13 @@ watch(
   { immediate: true },
 )
 
-async function ensureLoaded() {
-  if (paper.value) return
-  loading.value = true
-  try {
-    await paperStore.loadMyPapers()
-  } finally {
-    loading.value = false
-  }
-}
-
-void ensureLoaded()
-
 function statusTone(status: PaperStatus | undefined) {
   switch (status) {
-    case 'APPROVED':
+    case 'approved':
       return 'success'
-    case 'REJECTED':
+    case 'rejected':
       return 'danger'
-    case 'PENDING':
+    case 'pending':
       return 'warning'
     default:
       return 'info'
@@ -112,7 +130,45 @@ function removeReferenced(index: number) {
   form.referenced_paper.splice(index, 1)
 }
 
-async function submit() {
+function buildPayload(): PaperPayload {
+  return {
+    id: paper.value?.id,
+    title: form.title.trim() || undefined,
+    abstract: form.abstract.trim() || undefined,
+    year: form.year,
+    best_oa_location: form.best_oa_location.trim() || undefined,
+    related_paper: form.related_paper
+      .filter((item) => item.id.trim())
+      .map((item) => ({ id: item.id.trim() })),
+    referenced_paper: form.referenced_paper
+      .filter((item) => item.id.trim())
+      .map((item) => ({ id: item.id.trim() })),
+  }
+}
+
+async function saveDraft() {
+  successMsg.value = ''
+  errorMsg.value = ''
+  if (!paper.value) {
+    errorMsg.value = t('papers.errNotFound')
+    return
+  }
+  if (!canEdit.value) {
+    errorMsg.value = t('papers.errNotEditable')
+    return
+  }
+  try {
+    saving.value = true
+    await paperStore.saveDraft(buildPayload())
+    successMsg.value = t('papers.okSaved')
+  } catch (e: any) {
+    errorMsg.value = e?.message || t('papers.errSave')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function submitForReview() {
   successMsg.value = ''
   errorMsg.value = ''
   if (!paper.value) {
@@ -129,24 +185,26 @@ async function submit() {
   }
   try {
     saving.value = true
-    await paperStore.savePaper({
-      id: paper.value.id,
-      title: form.title.trim(),
-      abstract: form.abstract.trim() || undefined,
-      year: form.year,
-      best_oa_location: form.best_oa_location.trim() || undefined,
-      related_paper: form.related_paper
-        .filter((item) => item.id.trim())
-        .map((item) => ({ id: item.id.trim() })),
-      referenced_paper: form.referenced_paper
-        .filter((item) => item.id.trim())
-        .map((item) => ({ id: item.id.trim() })),
-      status: paper.value.status,
-      moderatorComment: paper.value.moderatorComment,
-    })
-    successMsg.value = t('papers.okSaved')
+    await paperStore.submitPaper(buildPayload())
+    successMsg.value = t('paperAdd.okSubmitted')
   } catch (e: any) {
-    errorMsg.value = e?.message || t('papers.errSave')
+    errorMsg.value = e?.message || t('paperAdd.errSubmit')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteSubmission() {
+  if (!paper.value || !canDelete.value) return
+  if (typeof window !== 'undefined' && !window.confirm(t('papers.deleteConfirm'))) {
+    return
+  }
+  try {
+    saving.value = true
+    await paperStore.deletePaper(paper.value.id)
+    await router.push({ name: 'my-papers' })
+  } catch (e: any) {
+    errorMsg.value = e?.message || t('papers.errDelete')
   } finally {
     saving.value = false
   }
@@ -183,11 +241,11 @@ function goBack() {
           </aside>
         </header>
 
-        <form class="form" @submit.prevent="submit">
+        <form class="form" @submit.prevent="submitForReview">
           <fieldset :disabled="!canEdit || saving">
             <label>
               <span>{{ t('paperAdd.title') }}</span>
-              <input type="text" v-model="form.title" required />
+              <input type="text" v-model="form.title" />
             </label>
             <label>
               <span>{{ t('paperAdd.abstract') }}</span>
@@ -249,8 +307,14 @@ function goBack() {
             <button class="btn" type="button" @click="goBack">
               {{ t('common.cancel') }}
             </button>
+            <button class="btn danger" type="button" v-if="canDelete" :disabled="saving" @click="deleteSubmission">
+              {{ t('common.delete') }}
+            </button>
+            <button class="btn" type="button" v-if="canEdit" :disabled="saving" @click="saveDraft">
+              {{ saving ? t('common.loading') : t('common.save') }}
+            </button>
             <button class="btn primary" type="submit" :disabled="saving || !canEdit">
-              {{ saving ? t('common.submitting') : t('common.save') }}
+              {{ saving ? t('common.submitting') : t('common.submit') }}
             </button>
           </div>
         </form>
@@ -422,6 +486,11 @@ textarea {
 .btn.primary {
   background: var(--color-primary-secondary);
   border-color: var(--color-primary-secondary);
+  color: #fff;
+}
+.btn.danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
   color: #fff;
 }
 .empty {

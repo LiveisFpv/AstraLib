@@ -541,6 +541,7 @@ def upsert_paper(
     year: Optional[int],
     type_value: Optional[str],
     created_at: Optional[dt.datetime],
+    created_by_user_id: Optional[int] = None,
 ) -> int:
     created_at = created_at or dt.datetime.utcnow()
     with conn.cursor() as cur:
@@ -548,10 +549,10 @@ def upsert_paper(
             cur.execute(
                 """
                 INSERT INTO papers (created_by_user_id, title, abstract, year, state, created_at)
-                VALUES (NULL, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING paper_id
                 """,
-                (title, abstract, year, type_value, created_at),
+                (created_by_user_id, title, abstract, year, type_value, created_at),
             )
             return cur.fetchone()["paper_id"]
 
@@ -562,10 +563,11 @@ def upsert_paper(
                 abstract = %s,
                 year = %s,
                 state = %s,
-                created_at = COALESCE(%s, created_at)
+                created_at = COALESCE(%s, created_at),
+                created_by_user_id = COALESCE(created_by_user_id, %s)
             WHERE paper_id = %s
             """,
-            (title, abstract, year, type_value, created_at, paper_id),
+            (title, abstract, year, type_value, created_at, created_by_user_id, paper_id),
         )
         return paper_id
 

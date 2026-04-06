@@ -87,13 +87,20 @@ func NewHTTPServer(conf *config.Config, a *app.App) *Server {
 	SSORouter(s.app.Group("/api/sso/"), a)
 
 	// Protected routers
-	ai := s.app.Group("/api/ai/")
-	ai.Use(middlewares.AuthMiddleware(a))
-	AIRouter(ai, a)
-
 	chat := s.app.Group("/api/chats/")
 	chat.Use(middlewares.AuthMiddleware(a))
 	ChatRouter(chat, a)
+
+	submissions := s.app.Group("/api/submissions")
+	submissions.Use(middlewares.AuthWithRolesMiddleware(a))
+	SubmissionsRouter(submissions, a)
+
+	moderation := s.app.Group("/api/moderation/submissions")
+	moderation.Use(
+		middlewares.AuthWithRolesMiddleware(a),
+		middlewares.RequireAnyRole("MODERATOR", "ADMIN"),
+	)
+	ModerationRouter(moderation, a)
 	return &s
 }
 

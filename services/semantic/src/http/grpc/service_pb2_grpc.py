@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import src.http.grpc.service_pb2 as service__pb2
+from src.http.grpc import service_pb2 as service__pb2
 
 GRPC_GENERATED_VERSION = '1.75.0'
 GRPC_VERSION = grpc.__version__
@@ -94,6 +94,56 @@ class SemanticServiceStub(object):
                 request_serializer=service__pb2.AddRequest.SerializeToString,
                 response_deserializer=service__pb2.PaperResponse.FromString,
                 _registered_method=True)
+        self.CreateMySubmission = channel.unary_unary(
+                '/semantic.SemanticService/CreateMySubmission',
+                request_serializer=service__pb2.CreateMySubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionResponse.FromString,
+                _registered_method=True)
+        self.UpdateMySubmission = channel.unary_unary(
+                '/semantic.SemanticService/UpdateMySubmission',
+                request_serializer=service__pb2.UpdateMySubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionResponse.FromString,
+                _registered_method=True)
+        self.DeleteMySubmission = channel.unary_unary(
+                '/semantic.SemanticService/DeleteMySubmission',
+                request_serializer=service__pb2.DeleteMySubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.ErrorResponse.FromString,
+                _registered_method=True)
+        self.GetMySubmission = channel.unary_unary(
+                '/semantic.SemanticService/GetMySubmission',
+                request_serializer=service__pb2.GetMySubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionResponse.FromString,
+                _registered_method=True)
+        self.ListMySubmissions = channel.unary_unary(
+                '/semantic.SemanticService/ListMySubmissions',
+                request_serializer=service__pb2.ListMySubmissionsRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionListResponse.FromString,
+                _registered_method=True)
+        self.SubmitMySubmission = channel.unary_unary(
+                '/semantic.SemanticService/SubmitMySubmission',
+                request_serializer=service__pb2.SubmitMySubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionResponse.FromString,
+                _registered_method=True)
+        self.ListModerationQueue = channel.unary_unary(
+                '/semantic.SemanticService/ListModerationQueue',
+                request_serializer=service__pb2.ListModerationQueueRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionListResponse.FromString,
+                _registered_method=True)
+        self.GetModerationSubmission = channel.unary_unary(
+                '/semantic.SemanticService/GetModerationSubmission',
+                request_serializer=service__pb2.GetModerationSubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionResponse.FromString,
+                _registered_method=True)
+        self.UpdateModerationSubmission = channel.unary_unary(
+                '/semantic.SemanticService/UpdateModerationSubmission',
+                request_serializer=service__pb2.UpdateModerationSubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionResponse.FromString,
+                _registered_method=True)
+        self.ModerateSubmission = channel.unary_unary(
+                '/semantic.SemanticService/ModerateSubmission',
+                request_serializer=service__pb2.ModerateSubmissionRequest.SerializeToString,
+                response_deserializer=service__pb2.SubmissionResponse.FromString,
+                _registered_method=True)
 
 
 class SemanticServiceServicer(object):
@@ -167,13 +217,73 @@ class SemanticServiceServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def SearchPaper(self, request, context):
-        """In progress
+        """Done
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def AddPaper(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateMySubmission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateMySubmission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def DeleteMySubmission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetMySubmission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListMySubmissions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SubmitMySubmission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ListModerationQueue(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetModerationSubmission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def UpdateModerationSubmission(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ModerateSubmission(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -241,6 +351,56 @@ def add_SemanticServiceServicer_to_server(servicer, server):
                     servicer.AddPaper,
                     request_deserializer=service__pb2.AddRequest.FromString,
                     response_serializer=service__pb2.PaperResponse.SerializeToString,
+            ),
+            'CreateMySubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateMySubmission,
+                    request_deserializer=service__pb2.CreateMySubmissionRequest.FromString,
+                    response_serializer=service__pb2.SubmissionResponse.SerializeToString,
+            ),
+            'UpdateMySubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateMySubmission,
+                    request_deserializer=service__pb2.UpdateMySubmissionRequest.FromString,
+                    response_serializer=service__pb2.SubmissionResponse.SerializeToString,
+            ),
+            'DeleteMySubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteMySubmission,
+                    request_deserializer=service__pb2.DeleteMySubmissionRequest.FromString,
+                    response_serializer=service__pb2.ErrorResponse.SerializeToString,
+            ),
+            'GetMySubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetMySubmission,
+                    request_deserializer=service__pb2.GetMySubmissionRequest.FromString,
+                    response_serializer=service__pb2.SubmissionResponse.SerializeToString,
+            ),
+            'ListMySubmissions': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListMySubmissions,
+                    request_deserializer=service__pb2.ListMySubmissionsRequest.FromString,
+                    response_serializer=service__pb2.SubmissionListResponse.SerializeToString,
+            ),
+            'SubmitMySubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.SubmitMySubmission,
+                    request_deserializer=service__pb2.SubmitMySubmissionRequest.FromString,
+                    response_serializer=service__pb2.SubmissionResponse.SerializeToString,
+            ),
+            'ListModerationQueue': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListModerationQueue,
+                    request_deserializer=service__pb2.ListModerationQueueRequest.FromString,
+                    response_serializer=service__pb2.SubmissionListResponse.SerializeToString,
+            ),
+            'GetModerationSubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetModerationSubmission,
+                    request_deserializer=service__pb2.GetModerationSubmissionRequest.FromString,
+                    response_serializer=service__pb2.SubmissionResponse.SerializeToString,
+            ),
+            'UpdateModerationSubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.UpdateModerationSubmission,
+                    request_deserializer=service__pb2.UpdateModerationSubmissionRequest.FromString,
+                    response_serializer=service__pb2.SubmissionResponse.SerializeToString,
+            ),
+            'ModerateSubmission': grpc.unary_unary_rpc_method_handler(
+                    servicer.ModerateSubmission,
+                    request_deserializer=service__pb2.ModerateSubmissionRequest.FromString,
+                    response_serializer=service__pb2.SubmissionResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -567,6 +727,276 @@ class SemanticService(object):
             '/semantic.SemanticService/AddPaper',
             service__pb2.AddRequest.SerializeToString,
             service__pb2.PaperResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateMySubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/CreateMySubmission',
+            service__pb2.CreateMySubmissionRequest.SerializeToString,
+            service__pb2.SubmissionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateMySubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/UpdateMySubmission',
+            service__pb2.UpdateMySubmissionRequest.SerializeToString,
+            service__pb2.SubmissionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteMySubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/DeleteMySubmission',
+            service__pb2.DeleteMySubmissionRequest.SerializeToString,
+            service__pb2.ErrorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetMySubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/GetMySubmission',
+            service__pb2.GetMySubmissionRequest.SerializeToString,
+            service__pb2.SubmissionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListMySubmissions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/ListMySubmissions',
+            service__pb2.ListMySubmissionsRequest.SerializeToString,
+            service__pb2.SubmissionListResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubmitMySubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/SubmitMySubmission',
+            service__pb2.SubmitMySubmissionRequest.SerializeToString,
+            service__pb2.SubmissionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListModerationQueue(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/ListModerationQueue',
+            service__pb2.ListModerationQueueRequest.SerializeToString,
+            service__pb2.SubmissionListResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetModerationSubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/GetModerationSubmission',
+            service__pb2.GetModerationSubmissionRequest.SerializeToString,
+            service__pb2.SubmissionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def UpdateModerationSubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/UpdateModerationSubmission',
+            service__pb2.UpdateModerationSubmissionRequest.SerializeToString,
+            service__pb2.SubmissionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ModerateSubmission(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/semantic.SemanticService/ModerateSubmission',
+            service__pb2.ModerateSubmissionRequest.SerializeToString,
+            service__pb2.SubmissionResponse.FromString,
             options,
             channel_credentials,
             insecure,

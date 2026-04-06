@@ -19,18 +19,28 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SemanticService_GetInstitutions_FullMethodName = "/semantic.SemanticService/GetInstitutions"
-	SemanticService_AddInstitution_FullMethodName  = "/semantic.SemanticService/AddInstitution"
-	SemanticService_GetAuthors_FullMethodName      = "/semantic.SemanticService/GetAuthors"
-	SemanticService_AddAuthor_FullMethodName       = "/semantic.SemanticService/AddAuthor"
-	SemanticService_GetChatHistory_FullMethodName  = "/semantic.SemanticService/GetChatHistory"
-	SemanticService_CreateNewChat_FullMethodName   = "/semantic.SemanticService/CreateNewChat"
-	SemanticService_UpdateChat_FullMethodName      = "/semantic.SemanticService/UpdateChat"
-	SemanticService_DeleteChat_FullMethodName      = "/semantic.SemanticService/DeleteChat"
-	SemanticService_GetUserChats_FullMethodName    = "/semantic.SemanticService/GetUserChats"
-	SemanticService_GetAuthorPapers_FullMethodName = "/semantic.SemanticService/GetAuthorPapers"
-	SemanticService_SearchPaper_FullMethodName     = "/semantic.SemanticService/SearchPaper"
-	SemanticService_AddPaper_FullMethodName        = "/semantic.SemanticService/AddPaper"
+	SemanticService_GetInstitutions_FullMethodName            = "/semantic.SemanticService/GetInstitutions"
+	SemanticService_AddInstitution_FullMethodName             = "/semantic.SemanticService/AddInstitution"
+	SemanticService_GetAuthors_FullMethodName                 = "/semantic.SemanticService/GetAuthors"
+	SemanticService_AddAuthor_FullMethodName                  = "/semantic.SemanticService/AddAuthor"
+	SemanticService_GetChatHistory_FullMethodName             = "/semantic.SemanticService/GetChatHistory"
+	SemanticService_CreateNewChat_FullMethodName              = "/semantic.SemanticService/CreateNewChat"
+	SemanticService_UpdateChat_FullMethodName                 = "/semantic.SemanticService/UpdateChat"
+	SemanticService_DeleteChat_FullMethodName                 = "/semantic.SemanticService/DeleteChat"
+	SemanticService_GetUserChats_FullMethodName               = "/semantic.SemanticService/GetUserChats"
+	SemanticService_GetAuthorPapers_FullMethodName            = "/semantic.SemanticService/GetAuthorPapers"
+	SemanticService_SearchPaper_FullMethodName                = "/semantic.SemanticService/SearchPaper"
+	SemanticService_AddPaper_FullMethodName                   = "/semantic.SemanticService/AddPaper"
+	SemanticService_CreateMySubmission_FullMethodName         = "/semantic.SemanticService/CreateMySubmission"
+	SemanticService_UpdateMySubmission_FullMethodName         = "/semantic.SemanticService/UpdateMySubmission"
+	SemanticService_DeleteMySubmission_FullMethodName         = "/semantic.SemanticService/DeleteMySubmission"
+	SemanticService_GetMySubmission_FullMethodName            = "/semantic.SemanticService/GetMySubmission"
+	SemanticService_ListMySubmissions_FullMethodName          = "/semantic.SemanticService/ListMySubmissions"
+	SemanticService_SubmitMySubmission_FullMethodName         = "/semantic.SemanticService/SubmitMySubmission"
+	SemanticService_ListModerationQueue_FullMethodName        = "/semantic.SemanticService/ListModerationQueue"
+	SemanticService_GetModerationSubmission_FullMethodName    = "/semantic.SemanticService/GetModerationSubmission"
+	SemanticService_UpdateModerationSubmission_FullMethodName = "/semantic.SemanticService/UpdateModerationSubmission"
+	SemanticService_ModerateSubmission_FullMethodName         = "/semantic.SemanticService/ModerateSubmission"
 )
 
 // SemanticServiceClient is the client API for SemanticService service.
@@ -49,6 +59,16 @@ type SemanticServiceClient interface {
 	GetAuthorPapers(ctx context.Context, in *AuthorPaperReq, opts ...grpc.CallOption) (*PapersResponse, error)
 	SearchPaper(ctx context.Context, in *SearchRequest, opts ...grpc.CallOption) (*ChatMessage, error)
 	AddPaper(ctx context.Context, in *AddRequest, opts ...grpc.CallOption) (*PaperResponse, error)
+	CreateMySubmission(ctx context.Context, in *CreateMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error)
+	UpdateMySubmission(ctx context.Context, in *UpdateMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error)
+	DeleteMySubmission(ctx context.Context, in *DeleteMySubmissionRequest, opts ...grpc.CallOption) (*ErrorResponse, error)
+	GetMySubmission(ctx context.Context, in *GetMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error)
+	ListMySubmissions(ctx context.Context, in *ListMySubmissionsRequest, opts ...grpc.CallOption) (*SubmissionListResponse, error)
+	SubmitMySubmission(ctx context.Context, in *SubmitMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error)
+	ListModerationQueue(ctx context.Context, in *ListModerationQueueRequest, opts ...grpc.CallOption) (*SubmissionListResponse, error)
+	GetModerationSubmission(ctx context.Context, in *GetModerationSubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error)
+	UpdateModerationSubmission(ctx context.Context, in *UpdateModerationSubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error)
+	ModerateSubmission(ctx context.Context, in *ModerateSubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error)
 }
 
 type semanticServiceClient struct {
@@ -179,6 +199,106 @@ func (c *semanticServiceClient) AddPaper(ctx context.Context, in *AddRequest, op
 	return out, nil
 }
 
+func (c *semanticServiceClient) CreateMySubmission(ctx context.Context, in *CreateMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionResponse)
+	err := c.cc.Invoke(ctx, SemanticService_CreateMySubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) UpdateMySubmission(ctx context.Context, in *UpdateMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionResponse)
+	err := c.cc.Invoke(ctx, SemanticService_UpdateMySubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) DeleteMySubmission(ctx context.Context, in *DeleteMySubmissionRequest, opts ...grpc.CallOption) (*ErrorResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ErrorResponse)
+	err := c.cc.Invoke(ctx, SemanticService_DeleteMySubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) GetMySubmission(ctx context.Context, in *GetMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionResponse)
+	err := c.cc.Invoke(ctx, SemanticService_GetMySubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) ListMySubmissions(ctx context.Context, in *ListMySubmissionsRequest, opts ...grpc.CallOption) (*SubmissionListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionListResponse)
+	err := c.cc.Invoke(ctx, SemanticService_ListMySubmissions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) SubmitMySubmission(ctx context.Context, in *SubmitMySubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionResponse)
+	err := c.cc.Invoke(ctx, SemanticService_SubmitMySubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) ListModerationQueue(ctx context.Context, in *ListModerationQueueRequest, opts ...grpc.CallOption) (*SubmissionListResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionListResponse)
+	err := c.cc.Invoke(ctx, SemanticService_ListModerationQueue_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) GetModerationSubmission(ctx context.Context, in *GetModerationSubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionResponse)
+	err := c.cc.Invoke(ctx, SemanticService_GetModerationSubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) UpdateModerationSubmission(ctx context.Context, in *UpdateModerationSubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionResponse)
+	err := c.cc.Invoke(ctx, SemanticService_UpdateModerationSubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *semanticServiceClient) ModerateSubmission(ctx context.Context, in *ModerateSubmissionRequest, opts ...grpc.CallOption) (*SubmissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SubmissionResponse)
+	err := c.cc.Invoke(ctx, SemanticService_ModerateSubmission_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SemanticServiceServer is the server API for SemanticService service.
 // All implementations must embed UnimplementedSemanticServiceServer
 // for forward compatibility.
@@ -195,6 +315,16 @@ type SemanticServiceServer interface {
 	GetAuthorPapers(context.Context, *AuthorPaperReq) (*PapersResponse, error)
 	SearchPaper(context.Context, *SearchRequest) (*ChatMessage, error)
 	AddPaper(context.Context, *AddRequest) (*PaperResponse, error)
+	CreateMySubmission(context.Context, *CreateMySubmissionRequest) (*SubmissionResponse, error)
+	UpdateMySubmission(context.Context, *UpdateMySubmissionRequest) (*SubmissionResponse, error)
+	DeleteMySubmission(context.Context, *DeleteMySubmissionRequest) (*ErrorResponse, error)
+	GetMySubmission(context.Context, *GetMySubmissionRequest) (*SubmissionResponse, error)
+	ListMySubmissions(context.Context, *ListMySubmissionsRequest) (*SubmissionListResponse, error)
+	SubmitMySubmission(context.Context, *SubmitMySubmissionRequest) (*SubmissionResponse, error)
+	ListModerationQueue(context.Context, *ListModerationQueueRequest) (*SubmissionListResponse, error)
+	GetModerationSubmission(context.Context, *GetModerationSubmissionRequest) (*SubmissionResponse, error)
+	UpdateModerationSubmission(context.Context, *UpdateModerationSubmissionRequest) (*SubmissionResponse, error)
+	ModerateSubmission(context.Context, *ModerateSubmissionRequest) (*SubmissionResponse, error)
 	mustEmbedUnimplementedSemanticServiceServer()
 }
 
@@ -240,6 +370,36 @@ func (UnimplementedSemanticServiceServer) SearchPaper(context.Context, *SearchRe
 }
 func (UnimplementedSemanticServiceServer) AddPaper(context.Context, *AddRequest) (*PaperResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddPaper not implemented")
+}
+func (UnimplementedSemanticServiceServer) CreateMySubmission(context.Context, *CreateMySubmissionRequest) (*SubmissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateMySubmission not implemented")
+}
+func (UnimplementedSemanticServiceServer) UpdateMySubmission(context.Context, *UpdateMySubmissionRequest) (*SubmissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateMySubmission not implemented")
+}
+func (UnimplementedSemanticServiceServer) DeleteMySubmission(context.Context, *DeleteMySubmissionRequest) (*ErrorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteMySubmission not implemented")
+}
+func (UnimplementedSemanticServiceServer) GetMySubmission(context.Context, *GetMySubmissionRequest) (*SubmissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMySubmission not implemented")
+}
+func (UnimplementedSemanticServiceServer) ListMySubmissions(context.Context, *ListMySubmissionsRequest) (*SubmissionListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListMySubmissions not implemented")
+}
+func (UnimplementedSemanticServiceServer) SubmitMySubmission(context.Context, *SubmitMySubmissionRequest) (*SubmissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SubmitMySubmission not implemented")
+}
+func (UnimplementedSemanticServiceServer) ListModerationQueue(context.Context, *ListModerationQueueRequest) (*SubmissionListResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListModerationQueue not implemented")
+}
+func (UnimplementedSemanticServiceServer) GetModerationSubmission(context.Context, *GetModerationSubmissionRequest) (*SubmissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetModerationSubmission not implemented")
+}
+func (UnimplementedSemanticServiceServer) UpdateModerationSubmission(context.Context, *UpdateModerationSubmissionRequest) (*SubmissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateModerationSubmission not implemented")
+}
+func (UnimplementedSemanticServiceServer) ModerateSubmission(context.Context, *ModerateSubmissionRequest) (*SubmissionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ModerateSubmission not implemented")
 }
 func (UnimplementedSemanticServiceServer) mustEmbedUnimplementedSemanticServiceServer() {}
 func (UnimplementedSemanticServiceServer) testEmbeddedByValue()                         {}
@@ -478,6 +638,186 @@ func _SemanticService_AddPaper_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SemanticService_CreateMySubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMySubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).CreateMySubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_CreateMySubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).CreateMySubmission(ctx, req.(*CreateMySubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_UpdateMySubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMySubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).UpdateMySubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_UpdateMySubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).UpdateMySubmission(ctx, req.(*UpdateMySubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_DeleteMySubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMySubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).DeleteMySubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_DeleteMySubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).DeleteMySubmission(ctx, req.(*DeleteMySubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_GetMySubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMySubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).GetMySubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_GetMySubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).GetMySubmission(ctx, req.(*GetMySubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_ListMySubmissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMySubmissionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).ListMySubmissions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_ListMySubmissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).ListMySubmissions(ctx, req.(*ListMySubmissionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_SubmitMySubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitMySubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).SubmitMySubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_SubmitMySubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).SubmitMySubmission(ctx, req.(*SubmitMySubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_ListModerationQueue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListModerationQueueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).ListModerationQueue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_ListModerationQueue_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).ListModerationQueue(ctx, req.(*ListModerationQueueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_GetModerationSubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetModerationSubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).GetModerationSubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_GetModerationSubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).GetModerationSubmission(ctx, req.(*GetModerationSubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_UpdateModerationSubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateModerationSubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).UpdateModerationSubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_UpdateModerationSubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).UpdateModerationSubmission(ctx, req.(*UpdateModerationSubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SemanticService_ModerateSubmission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ModerateSubmissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SemanticServiceServer).ModerateSubmission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SemanticService_ModerateSubmission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SemanticServiceServer).ModerateSubmission(ctx, req.(*ModerateSubmissionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SemanticService_ServiceDesc is the grpc.ServiceDesc for SemanticService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -532,6 +872,46 @@ var SemanticService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AddPaper",
 			Handler:    _SemanticService_AddPaper_Handler,
+		},
+		{
+			MethodName: "CreateMySubmission",
+			Handler:    _SemanticService_CreateMySubmission_Handler,
+		},
+		{
+			MethodName: "UpdateMySubmission",
+			Handler:    _SemanticService_UpdateMySubmission_Handler,
+		},
+		{
+			MethodName: "DeleteMySubmission",
+			Handler:    _SemanticService_DeleteMySubmission_Handler,
+		},
+		{
+			MethodName: "GetMySubmission",
+			Handler:    _SemanticService_GetMySubmission_Handler,
+		},
+		{
+			MethodName: "ListMySubmissions",
+			Handler:    _SemanticService_ListMySubmissions_Handler,
+		},
+		{
+			MethodName: "SubmitMySubmission",
+			Handler:    _SemanticService_SubmitMySubmission_Handler,
+		},
+		{
+			MethodName: "ListModerationQueue",
+			Handler:    _SemanticService_ListModerationQueue_Handler,
+		},
+		{
+			MethodName: "GetModerationSubmission",
+			Handler:    _SemanticService_GetModerationSubmission_Handler,
+		},
+		{
+			MethodName: "UpdateModerationSubmission",
+			Handler:    _SemanticService_UpdateModerationSubmission_Handler,
+		},
+		{
+			MethodName: "ModerateSubmission",
+			Handler:    _SemanticService_ModerateSubmission_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

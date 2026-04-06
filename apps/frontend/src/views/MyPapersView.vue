@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import UpTab from '@/components/UpTab.vue'
 import LeftTab from '@/components/LeftTab.vue'
@@ -11,19 +11,24 @@ const paperStore = usePaperStore()
 const router = useRouter()
 const { t } = useI18n()
 const { LeftTabHidden: leftHidden, layoutInset } = useLayoutInset()
+const selectedStatus = ref<'all' | PaperStatus>('all')
 
 const statusKeyMap: Record<PaperStatus, string> = {
-  DRAFT: 'papers.status.draft',
-  PENDING: 'papers.status.pending',
-  REJECTED: 'papers.status.rejected',
-  APPROVED: 'papers.status.approved',
+  draft: 'papers.status.draft',
+  pending: 'papers.status.pending',
+  rejected: 'papers.status.rejected',
+  approved: 'papers.status.approved',
 }
 
 onMounted(() => {
-  paperStore.loadMyPapers()
+  void paperStore.loadMyPapers()
 })
 
-const items = computed(() => paperStore.getMyPapers())
+const items = computed(() =>
+  selectedStatus.value === 'all'
+    ? paperStore.getMyPapers()
+    : paperStore.getMyPapers([selectedStatus.value]),
+)
 
 function formatDate(value?: string) {
   if (!value) return '--'
@@ -47,11 +52,11 @@ function statusLabel(status: PaperStatus) {
 
 function statusTone(status: PaperStatus) {
   switch (status) {
-    case 'APPROVED':
+    case 'approved':
       return 'success'
-    case 'REJECTED':
+    case 'rejected':
       return 'danger'
-    case 'PENDING':
+    case 'pending':
       return 'warning'
     default:
       return 'info'
@@ -62,12 +67,27 @@ function goToEdit(id: string) {
   router.push({ name: 'paper-edit', params: { id } })
 }
 
+function openSubmission(id: string) {
+  router.push({ name: 'paper-edit', params: { id } })
+}
+
 function goToAdd() {
   router.push({ path: '/paper/add' })
 }
 
 function handleRefresh() {
-  paperStore.loadMyPapers()
+  void paperStore.loadMyPapers()
+}
+
+async function handleDelete(id: string) {
+  if (typeof window !== 'undefined' && !window.confirm(t('papers.deleteConfirm'))) {
+    return
+  }
+  try {
+    await paperStore.deletePaper(id)
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 const addIcon = new URL('@/assets/plus-line-icon.svg', import.meta.url).href
@@ -84,6 +104,16 @@ const addIcon = new URL('@/assets/plus-line-icon.svg', import.meta.url).href
           <!-- <p class="muted">{{ t('papers.subtitle') }}</p> -->
         </div>
         <div class="head-actions">
+          <select v-model="selectedStatus" class="status-filter">
+            <option value="all">{{ t('papers.filter.all') }}</option>
+            <option value="draft">{{ t('papers.status.draft') }}</option>
+            <option value="pending">{{ t('papers.status.pending') }}</option>
+            <option value="rejected">{{ t('papers.status.rejected') }}</option>
+            <option value="approved">{{ t('papers.status.approved') }}</option>
+          </select>
+          <button class="btn" type="button" @click="handleRefresh">
+            {{ t('common.refresh') }}
+          </button>
           <button class="btn primary" type="button" @click="goToAdd">
             <img :src="addIcon" alt="" class="btn-icon" />
             {{ t('nav.addPaper') }}
@@ -120,6 +150,10 @@ const addIcon = new URL('@/assets/plus-line-icon.svg', import.meta.url).href
                 <span v-else class="muted">{{ t('papers.noModeratorComment') }}</span>
               </dd>
             </div>
+            <div class="info-pair" v-if="paper.approvedPaperId">
+              <dt>{{ t('papers.approvedPaperId') }}</dt>
+              <dd>{{ paper.approvedPaperId }}</dd>
+            </div>
           </dl>
 
           <footer class="actions">
@@ -131,8 +165,16 @@ const addIcon = new URL('@/assets/plus-line-icon.svg', import.meta.url).href
             >
               {{ t('papers.action.edit') }}
             </button>
-            <button class="btn" type="button" @click="$router.push({ path: `/paper/${paper.id}` })">
-              {{ t('papers.action.viewPublic') }}
+            <button class="btn" type="button" v-else @click="openSubmission(paper.id)">
+              {{ t('papers.action.viewSubmission') }}
+            </button>
+            <button
+              class="btn danger"
+              type="button"
+              v-if="paperStore.canDelete(paper.id)"
+              @click="handleDelete(paper.id)"
+            >
+              {{ t('common.delete') }}
             </button>
           </footer>
         </article>
@@ -173,6 +215,14 @@ const addIcon = new URL('@/assets/plus-line-icon.svg', import.meta.url).href
   align-items: center;
   flex-wrap: wrap;
   margin-top: var(--space-2);
+}
+.status-filter {
+  min-width: 180px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 .head h2 {
   margin: 0;
@@ -266,6 +316,11 @@ dd {
   border-color: var(--color-primary-secondary);
   color: #fff;
 }
+.btn.danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
 .btn-icon {
   width: 1em;
   height: 1em;
@@ -310,6 +365,9 @@ dd {
   }
   .actions {
     justify-content: flex-start;
+  }
+  .status-filter {
+    width: 100%;
   }
 }
 </style>

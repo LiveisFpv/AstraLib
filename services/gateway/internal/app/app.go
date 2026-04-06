@@ -9,10 +9,11 @@ import (
 )
 
 type App struct {
-	Config       *config.Config
-	ChatService  service.ChatService
-	PaperService service.PaperService
-	Logger       *logrus.Logger
+	Config            *config.Config
+	ChatService       service.ChatService
+	PaperService      service.PaperService
+	SubmissionService service.SubmissionService
+	Logger            *logrus.Logger
 	// gRPC client for external AI service
 	AI pb.SemanticServiceClient
 }
@@ -24,11 +25,13 @@ func NewApp(
 ) *App {
 	ChatService := service.NewChatService(AI, Logger)
 	PaperService := service.NewPaperService(AI, Logger)
+	SubmissionService := service.NewSubmissionService(AI, Logger)
 	return &App{
-		Config:       cfg,
-		ChatService:  ChatService,
-		PaperService: PaperService,
-		Logger:       Logger,
-		AI:           AI,
+		Config:            cfg,
+		ChatService:       ChatService,
+		PaperService:      PaperService,
+		SubmissionService: SubmissionService,
+		Logger:            Logger,
+		AI:                AI,
 	}
 }

@@ -1,14 +1,15 @@
 # ALib Gateway Service
 
-HTTP gateway for the ALib semantic search stack. Exposes a REST API for chat and
-paper indexing, validates JWT tokens via an external SSO service, and proxies
-requests to an AL semantic service.
+HTTP gateway for the ALib semantic search stack. Exposes a REST API for chat,
+author submissions, and moderation; validates JWT tokens via an external SSO
+service; and proxies requests to semantic-service over gRPC.
 
 ## Architecture
 
 - HTTP server (Gin) on `HTTP_PORT`, base path `/api`
 - gRPC client to AI service at `AI_GRPC_ADDR`
 - JWT validation by SSO: `SSO_HTTP_URL/api/auth/validate`
+- Role/profile fetch by SSO: `SSO_HTTP_URL/api/auth/authenticate`
 - Swagger UI at `/swagger` (optional basic auth)
 
 ## Quick start (Docker)
@@ -37,13 +38,25 @@ Base path: `/api`.
 
 Protected endpoints (require `Authorization: Bearer <token>`):
 
-- `POST /api/ai/paper/add`
-- `POST /api/chats`
-- `GET /api/chats`
-- `GET /api/chats/{chat_id}/history`
-- `POST /api/chats/{chat_id}/history`
-- `PUT /api/chats/{chat_id}`
-- `DELETE /api/chats/{chat_id}`
+- Chat/search:
+  - `POST /api/chats`
+  - `GET /api/chats`
+  - `GET /api/chats/{chat_id}/history`
+  - `POST /api/chats/{chat_id}/history`
+  - `PUT /api/chats/{chat_id}`
+  - `DELETE /api/chats/{chat_id}`
+- Author submissions:
+  - `POST /api/submissions`
+  - `GET /api/submissions`
+  - `GET /api/submissions/{submission_id}`
+  - `PUT /api/submissions/{submission_id}`
+  - `DELETE /api/submissions/{submission_id}`
+  - `POST /api/submissions/{submission_id}/submit`
+- Moderation:
+  - `GET /api/moderation/submissions`
+  - `GET /api/moderation/submissions/{submission_id}`
+  - `PUT /api/moderation/submissions/{submission_id}`
+  - `POST /api/moderation/submissions/{submission_id}/moderate`
 
 Swagger: `http://localhost:8080/swagger/index.html` (if enabled).
 

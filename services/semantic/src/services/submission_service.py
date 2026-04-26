@@ -66,10 +66,21 @@ class SubmissionRepositoryProtocol(Protocol):
     def list_moderation_submissions(self, **kwargs) -> tuple[list[SubmissionModel], int]: ...
 
 
+class UserEnsurerProtocol(Protocol):
+    def ensure_user(self, user_id: int): ...
+
+
 class SubmissionService:
-    def __init__(self, repository: SubmissionRepositoryProtocol, *, task_max_attempts: int) -> None:
+    def __init__(
+        self,
+        repository: SubmissionRepositoryProtocol,
+        *,
+        task_max_attempts: int,
+        user_service: UserEnsurerProtocol | None = None,
+    ) -> None:
         self.repository = repository
         self.task_max_attempts = max(1, int(task_max_attempts))
+        self.user_service = user_service
 
     def create_my_submission(
         self,
@@ -83,8 +94,10 @@ class SubmissionService:
         referenced_works: Sequence[str],
         related_works: Sequence[str],
     ) -> SubmissionModel:
+        normalized_user_id = int(user_id)
+        self._ensure_user(normalized_user_id)
         return self.repository.create_submission(
-            created_by_user_id=int(user_id),
+            created_by_user_id=normalized_user_id,
             source_identifier=_clean_text(source_identifier),
             title=_clean_text(title) or "",
             abstract=_clean_text(abstract) or "",
@@ -224,19 +237,22 @@ class SubmissionService:
             raise SubmissionStateError("only pending submissions can be moderated")
 
         normalized_action = str(action or "").strip().lower()
+        if normalized_action not in {MODERATION_ACTION_REJECT, MODERATION_ACTION_APPROVE}:
+            raise SubmissionValidationError("moderation action must be 'approve' or 'reject'")
+
+        normalized_moderator_user_id = int(moderator_user_id)
+        self._ensure_user(normalized_moderator_user_id)
         if normalized_action == MODERATION_ACTION_REJECT:
             return self.repository.reject_submission(
                 submission_id=int(submission_id),
-                moderated_by_user_id=int(moderator_user_id),
+                moderated_by_user_id=normalized_moderator_user_id,
                 moderation_comment=_clean_text(comment),
             )
-        if normalized_action != MODERATION_ACTION_APPROVE:
-            raise SubmissionValidationError("moderation action must be 'approve' or 'reject'")
 
         self._validate_publishable_content(submission)
         approved_submission, _task_id = self.repository.approve_submission_and_enqueue(
             submission_id=int(submission_id),
-            moderated_by_user_id=int(moderator_user_id),
+            moderated_by_user_id=normalized_moderator_user_id,
             moderation_comment=_clean_text(comment),
             max_attempts=self.task_max_attempts,
         )
@@ -314,6 +330,10 @@ class SubmissionService:
         raise SubmissionPermissionError(
             f"user {int(user_id)} is not allowed to access submission {int(submission_id)} owned by user {existing.created_by_user_id}"
         )
+
+    def _ensure_user(self, user_id: int) -> None:
+        if self.user_service is not None:
+            self.user_service.ensure_user(user_id)
 
     @staticmethod
     def _require_author_editable(submission: SubmissionModel, *, action: str) -> None:

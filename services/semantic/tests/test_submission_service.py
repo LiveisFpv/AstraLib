@@ -210,6 +210,15 @@ class FakeSubmissionRepository:
         return ordered[offset : offset + limit], len(matches)
 
 
+class FakeUserService:
+    def __init__(self) -> None:
+        self.ensured_user_ids: list[int] = []
+
+    def ensure_user(self, user_id: int):
+        self.ensured_user_ids.append(user_id)
+        return {"id": user_id}
+
+
 def make_service() -> tuple[SubmissionService, FakeSubmissionRepository]:
     repository = FakeSubmissionRepository()
     return SubmissionService(repository, task_max_attempts=3), repository
@@ -236,6 +245,26 @@ def seed_submission(
     repository.submissions[submission_id] = submission
     repository.next_submission_id = max(repository.next_submission_id, submission_id + 1)
     return submission
+
+
+def test_create_submission_ensures_user_before_insert() -> None:
+    repository = FakeSubmissionRepository()
+    user_service = FakeUserService()
+    service = SubmissionService(repository, task_max_attempts=3, user_service=user_service)
+
+    submission = service.create_my_submission(
+        user_id=10,
+        source_identifier="W1",
+        title="title",
+        abstract="abstract",
+        year=None,
+        best_oa_location=None,
+        referenced_works=[],
+        related_works=[],
+    )
+
+    assert user_service.ensured_user_ids == [10]
+    assert submission.created_by_user_id == 10
 
 
 def test_author_cannot_update_approved_submission() -> None:
@@ -317,6 +346,31 @@ def test_moderator_cannot_approve_already_decided_submission() -> None:
             action="approve",
             comment="ok",
         )
+
+
+def test_moderation_ensures_moderator_user_before_update() -> None:
+    repository = FakeSubmissionRepository()
+    user_service = FakeUserService()
+    service = SubmissionService(repository, task_max_attempts=3, user_service=user_service)
+    seed_submission(
+        repository,
+        submission_id=3,
+        created_by_user_id=10,
+        source_identifier="W3",
+        title="title",
+        abstract="abstract",
+        status=SUBMISSION_STATUS_PENDING,
+    )
+
+    submission = service.moderate_submission(
+        submission_id=3,
+        moderator_user_id=500,
+        action="reject",
+        comment="not enough data",
+    )
+
+    assert user_service.ensured_user_ids == [500]
+    assert submission.moderated_by_user_id == 500
 
 
 def test_compatibility_wrapper_updates_latest_editable_submission_and_submits() -> None:

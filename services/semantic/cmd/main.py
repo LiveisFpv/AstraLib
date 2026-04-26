@@ -60,6 +60,8 @@ def main() -> None:
     citation_repository = CitationRepository()
     paper_ingestion_repository = PaperIngestionRepository(citation_repository=citation_repository)
     submission_repository = SubmissionRepository()
+    user_repo = UserRepository()
+    user_service = UserService(user_repo)
     weighted_index_manager = maybe_create_weighted_index_manager(
         index=index,
         encoder=encoder,
@@ -86,14 +88,12 @@ def main() -> None:
     )
     ingestion_scheduler.start()
 
-    # ! TODO services, connections and repoes
-    user_repo = UserRepository()
     chat_repo = ChatRepository()
-    user_service = UserService(user_repo)
     chat_service = ChatService(chat_repo, user_service)
     submission_service = SubmissionService(
         submission_repository,
         task_max_attempts=ingestion_settings.task_max_attempts,
+        user_service=user_service,
     )
 
     service = SemanticServiceGrpc(

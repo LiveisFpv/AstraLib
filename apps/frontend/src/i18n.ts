@@ -208,6 +208,24 @@ const messages: Record<Locale, Record<string, string>> = {
     'auth.haveAccount': 'Already have an account?',
     'auth.createOne': 'Create one',
     'auth.signIn': 'Sign in',
+    'auth.passwordHint':
+      'Use 8 to 40 characters with uppercase, lowercase, a number, and a special symbol.',
+    'auth.loginFailed': 'Could not sign in. Try again later.',
+    'auth.signupFailed': 'Could not create the account. Try again later.',
+    'auth.validation.fixErrors': 'Fix the highlighted fields before continuing.',
+    'auth.validation.emailRequired': 'Enter your email.',
+    'auth.validation.emailInvalid': 'Enter a valid email address.',
+    'auth.validation.emailMaxLength': 'Email must be 128 characters or less.',
+    'auth.validation.passwordRequired': 'Enter your password.',
+    'auth.validation.passwordLength': 'Password must contain 8 to 40 characters.',
+    'auth.validation.passwordPolicy':
+      'Password must include uppercase, lowercase, a number, and a special symbol.',
+    'auth.validation.confirmPasswordRequired': 'Confirm your password.',
+    'auth.validation.confirmPasswordMismatch': 'Passwords do not match.',
+    'auth.validation.firstNameRequired': 'Enter your first name.',
+    'auth.validation.firstNameMaxLength': 'First name must be 128 characters or less.',
+    'auth.validation.lastNameRequired': 'Enter your last name.',
+    'auth.validation.lastNameMaxLength': 'Last name must be 128 characters or less.',
 
     'notFound.title': '404 - Page Not Found',
     'notFound.desc': 'The page you are looking for does not exist.',
@@ -404,7 +422,8 @@ const messages: Record<Locale, Record<string, string>> = {
     'auth.lastname': 'Фамилия',
     'auth.forgot': 'Забыли пароль?',
     'auth.resetEmailRequired': 'Введите email, чтобы сбросить пароль.',
-    'auth.resetSuccess': 'Если такой email существует, мы отправили инструкции по восстановлению.',
+    'auth.resetSuccess':
+      'Если такой email существует, мы отправили инструкции по восстановлению.',
     'auth.resetFailed': 'Не удалось отправить письмо. Попробуйте позже.',
     'auth.resetTitle': 'Восстановление пароля',
     'auth.resetDescription':
@@ -418,6 +437,25 @@ const messages: Record<Locale, Record<string, string>> = {
     'auth.haveAccount': 'Уже есть аккаунт?',
     'auth.createOne': 'Создать',
     'auth.signIn': 'Войти',
+    'auth.passwordHint':
+      'Используйте от 8 до 40 символов, включая заглавную, строчную букву, цифру и спецсимвол.',
+    'auth.loginFailed': 'Не удалось войти. Попробуйте позже.',
+    'auth.signupFailed': 'Не удалось создать аккаунт. Попробуйте позже.',
+    'auth.validation.fixErrors': 'Исправьте ошибки в форме перед продолжением.',
+    'auth.validation.emailRequired': 'Введите email.',
+    'auth.validation.emailInvalid': 'Введите корректный email.',
+    'auth.validation.emailMaxLength': 'Email должен быть не длиннее 128 символов.',
+    'auth.validation.passwordRequired': 'Введите пароль.',
+    'auth.validation.passwordLength': 'Пароль должен содержать от 8 до 40 символов.',
+    'auth.validation.passwordPolicy':
+      'Пароль должен содержать заглавную, строчную букву, цифру и спецсимвол.',
+    'auth.validation.confirmPasswordRequired': 'Подтвердите пароль.',
+    'auth.validation.confirmPasswordMismatch': 'Пароли не совпадают.',
+    'auth.validation.firstNameRequired': 'Введите имя.',
+    'auth.validation.firstNameMaxLength': 'Имя должно быть не длиннее 128 символов.',
+    'auth.validation.lastNameRequired': 'Введите фамилию.',
+    'auth.validation.lastNameMaxLength': 'Фамилия должна быть не длиннее 128 символов.',
+
 
     'notFound.title': '404 - Страница не найдена',
     'notFound.desc': 'Страница, которую вы ищете, не существует.',

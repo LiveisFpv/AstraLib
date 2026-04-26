@@ -1,66 +1,166 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import { useI18n } from '@/i18n'
+import {
+  AUTH_PASSWORD_MAX_LENGTH,
+  AUTH_PASSWORD_MIN_LENGTH,
+  AUTH_TEXT_MAX_LENGTH,
+  createAuthDraft,
+  validateAuthDraft,
+  type AuthDraft,
+  type AuthDraftField,
+  type AuthMode,
+} from '@/utils/auth'
+
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+
 if (authStore.isAuthenticated) {
   router.replace('/')
 }
-const loginorsignup = ref('login')
-const isLogin = computed(() => loginorsignup.value === 'login')
+
+const authMode = ref<AuthMode>('login')
+const isLogin = computed(() => authMode.value === 'login')
+const draft = reactive<AuthDraft>(createAuthDraft())
+const touched = reactive<Record<AuthDraftField, boolean>>({
+  email: false,
+  password: false,
+  confirmPassword: false,
+  firstName: false,
+  lastName: false,
+})
+const validationResult = computed(() => validateAuthDraft(authMode.value, draft))
+const formError = ref('')
+const isSubmitting = ref(false)
 const isResetSubmitting = ref(false)
 const isResetOpen = ref(false)
 const resetEmail = ref('')
 const resetMessage = ref('')
 const resetError = ref('')
-function Switch() {
-  console.log('loginorsignup.value: ', loginorsignup.value)
-  if (loginorsignup.value == 'login') {
-    loginorsignup.value = 'signup'
-  } else {
-    loginorsignup.value = 'login'
+
+function isVisibleField(field: AuthDraftField) {
+  return isLogin.value ? field === 'email' || field === 'password' : true
+}
+
+function getFieldError(field: AuthDraftField) {
+  const code = validationResult.value.fieldErrors[field]
+  if (!code) return ''
+
+  switch (field) {
+    case 'email':
+      if (code === 'required') return t('auth.validation.emailRequired')
+      if (code === 'maxLength') return t('auth.validation.emailMaxLength')
+      return t('auth.validation.emailInvalid')
+    case 'password':
+      if (code === 'required') return t('auth.validation.passwordRequired')
+      if (code === 'passwordLength') return t('auth.validation.passwordLength')
+      return t('auth.validation.passwordPolicy')
+    case 'confirmPassword':
+      return code === 'required'
+        ? t('auth.validation.confirmPasswordRequired')
+        : t('auth.validation.confirmPasswordMismatch')
+    case 'firstName':
+      return code === 'required'
+        ? t('auth.validation.firstNameRequired')
+        : t('auth.validation.firstNameMaxLength')
+    case 'lastName':
+      return code === 'required'
+        ? t('auth.validation.lastNameRequired')
+        : t('auth.validation.lastNameMaxLength')
   }
 }
+
+function hasFieldError(field: AuthDraftField) {
+  return touched[field] && isVisibleField(field) && !!validationResult.value.fieldErrors[field]
+}
+
+function markFieldTouched(field: AuthDraftField) {
+  touched[field] = true
+}
+
+function markVisibleFieldsTouched() {
+  markFieldTouched('email')
+  markFieldTouched('password')
+  if (!isLogin.value) {
+    markFieldTouched('firstName')
+    markFieldTouched('lastName')
+    markFieldTouched('confirmPassword')
+  }
+}
+
+function clearFormError() {
+  formError.value = ''
+}
+
+function switchMode() {
+  formError.value = ''
+  authMode.value = isLogin.value ? 'signup' : 'login'
+  touched.confirmPassword = false
+  touched.firstName = false
+  touched.lastName = false
+}
+
 const openResetDialog = async (e: Event) => {
   e.preventDefault()
   resetMessage.value = ''
   resetError.value = ''
-  const emailInput = document.getElementById('email') as HTMLInputElement | null
-  resetEmail.value = emailInput?.value?.trim() ?? ''
+  resetEmail.value = draft.email.trim()
   isResetOpen.value = true
   await nextTick()
   ;(document.getElementById('reset-email') as HTMLInputElement | null)?.focus()
 }
+
 const closeResetDialog = () => {
   if (isResetSubmitting.value) return
   isResetOpen.value = false
   resetMessage.value = ''
   resetError.value = ''
 }
+
 const onSubmit = async (e: Event) => {
   e.preventDefault()
-  const email = (document.getElementById('email') as HTMLInputElement).value
-  const password = (document.getElementById('password') as HTMLInputElement).value
-  if (!isLogin.value) {
-    const confirmpassword = (document.getElementById('confirmpassword') as HTMLInputElement).value
-    const firstname = (document.getElementById('firstname') as HTMLInputElement).value
-    const lastname = (document.getElementById('lastname') as HTMLInputElement).value
-    await authStore.signup(email, password, firstname, lastname)
+  if (isSubmitting.value) return
+
+  clearFormError()
+  markVisibleFieldsTouched()
+
+  if (Object.keys(validationResult.value.fieldErrors).length > 0) {
+    formError.value = t('auth.validation.fixErrors')
+    return
+  }
+
+  try {
+    isSubmitting.value = true
+    const { values } = validationResult.value
+
+    if (isLogin.value) {
+      await authStore.login(values.email, values.password)
+      if (authStore.isAuthenticated) {
+        const target = (route.query.redirect as string) || '/'
+        router.replace(target)
+      }
+      return
+    }
+
+    await authStore.signup(values.email, values.password, values.firstName, values.lastName)
     const target = (route.query.redirect as string) || '/'
     router.replace(target)
-  }
-  if (isLogin.value) {
-    await authStore.login(email, password)
-    if (authStore.isAuthenticated) {
-      const target = (route.query.redirect as string) || '/'
-      router.replace(target)
+  } catch (error) {
+    const fallback = isLogin.value ? t('auth.loginFailed') : t('auth.signupFailed')
+    if (error && typeof error === 'object' && 'message' in error) {
+      formError.value = String((error as { message?: string }).message || fallback)
+    } else {
+      formError.value = fallback
     }
+  } finally {
+    isSubmitting.value = false
   }
 }
+
 const onForgotPassword = async (e?: Event) => {
   e?.preventDefault()
   resetMessage.value = ''
@@ -87,52 +187,108 @@ const onForgotPassword = async (e?: Event) => {
   }
 }
 </script>
+
 <template>
   <div class="auth-view">
     <div class="card auth-card">
       <div class="login-view">
         <h2 class="auth-title">{{ isLogin ? t('auth.login') : t('auth.signup') }}</h2>
-        <div class="auth-form">
-          <input
-            type="email"
-            :placeholder="t('auth.email')"
-            class="input"
-            autocomplete="email"
-            id="email"
-          />
-          <input
-            type="text"
-            :placeholder="t('auth.lastname')"
-            class="input"
-            autocomplete="family-name"
-            id="lastname"
-            v-if="!isLogin"
-          />
-          <input
-            type="text"
-            :placeholder="t('auth.firstname')"
-            class="input"
-            autocomplete="given-name"
-            id="firstname"
-            v-if="!isLogin"
-          />
-          <input
-            type="password"
-            :placeholder="t('auth.password')"
-            class="input"
-            autocomplete="current-password"
-            id="password"
-          />
-          <input
-            type="password"
-            :placeholder="t('auth.confirmPassword')"
-            class="input"
-            autocomplete="new-password"
-            id="confirmpassword"
-            v-if="!isLogin"
-          />
-          <button class="btn btn--primary" @click="onSubmit">
-            {{ isLogin ? t('auth.login') : t('auth.signup') }}
+        <form class="auth-form" @submit.prevent="onSubmit">
+          <div class="auth-field">
+            <input
+              v-model.trim="draft.email"
+              type="email"
+              :placeholder="t('auth.email')"
+              class="input"
+              :class="{ 'input--invalid': hasFieldError('email') }"
+              autocomplete="email"
+              id="email"
+              :maxlength="AUTH_TEXT_MAX_LENGTH"
+              @input="clearFormError"
+              @blur="markFieldTouched('email')"
+            />
+            <p v-if="hasFieldError('email')" class="field-feedback field-feedback--error">
+              {{ getFieldError('email') }}
+            </p>
+          </div>
+          <div v-if="!isLogin" class="auth-field">
+            <input
+              v-model.trim="draft.lastName"
+              type="text"
+              :placeholder="t('auth.lastname')"
+              class="input"
+              :class="{ 'input--invalid': hasFieldError('lastName') }"
+              autocomplete="family-name"
+              id="lastname"
+              :maxlength="AUTH_TEXT_MAX_LENGTH"
+              @input="clearFormError"
+              @blur="markFieldTouched('lastName')"
+            />
+            <p v-if="hasFieldError('lastName')" class="field-feedback field-feedback--error">
+              {{ getFieldError('lastName') }}
+            </p>
+          </div>
+          <div v-if="!isLogin" class="auth-field">
+            <input
+              v-model.trim="draft.firstName"
+              type="text"
+              :placeholder="t('auth.firstname')"
+              class="input"
+              :class="{ 'input--invalid': hasFieldError('firstName') }"
+              autocomplete="given-name"
+              id="firstname"
+              :maxlength="AUTH_TEXT_MAX_LENGTH"
+              @input="clearFormError"
+              @blur="markFieldTouched('firstName')"
+            />
+            <p v-if="hasFieldError('firstName')" class="field-feedback field-feedback--error">
+              {{ getFieldError('firstName') }}
+            </p>
+          </div>
+          <div class="auth-field">
+            <input
+              v-model="draft.password"
+              type="password"
+              :placeholder="t('auth.password')"
+              class="input"
+              :class="{ 'input--invalid': hasFieldError('password') }"
+              :autocomplete="isLogin ? 'current-password' : 'new-password'"
+              id="password"
+              :minlength="AUTH_PASSWORD_MIN_LENGTH"
+              :maxlength="AUTH_PASSWORD_MAX_LENGTH"
+              @input="clearFormError"
+              @blur="markFieldTouched('password')"
+            />
+            <p v-if="hasFieldError('password')" class="field-feedback field-feedback--error">
+              {{ getFieldError('password') }}
+            </p>
+            <p v-else-if="!isLogin" class="field-feedback field-feedback--hint">
+              {{ t('auth.passwordHint') }}
+            </p>
+          </div>
+          <div v-if="!isLogin" class="auth-field">
+            <input
+              v-model="draft.confirmPassword"
+              type="password"
+              :placeholder="t('auth.confirmPassword')"
+              class="input"
+              :class="{ 'input--invalid': hasFieldError('confirmPassword') }"
+              autocomplete="new-password"
+              id="confirmpassword"
+              :minlength="AUTH_PASSWORD_MIN_LENGTH"
+              :maxlength="AUTH_PASSWORD_MAX_LENGTH"
+              @input="clearFormError"
+              @blur="markFieldTouched('confirmPassword')"
+            />
+            <p v-if="hasFieldError('confirmPassword')" class="field-feedback field-feedback--error">
+              {{ getFieldError('confirmPassword') }}
+            </p>
+          </div>
+          <p v-if="formError" class="form-feedback form-feedback--error">
+            {{ formError }}
+          </p>
+          <button class="btn btn--primary" type="submit" :disabled="isSubmitting">
+            {{ isSubmitting ? t('common.loading') : isLogin ? t('auth.login') : t('auth.signup') }}
           </button>
           <button
             class="btn btn-text"
@@ -142,7 +298,7 @@ const onForgotPassword = async (e?: Event) => {
           >
             {{ t('auth.forgot') }}
           </button>
-        </div>
+        </form>
         <div class="oauth">
           <button class="btn oauth-btn" @click="authStore.oauth('google', '/')">
             <img src="/src/assets/google-icon.svg" alt="Google" class="logo oauth-logo" />
@@ -155,7 +311,7 @@ const onForgotPassword = async (e?: Event) => {
         </div>
         <div class="switch">
           <span class="muted">{{ isLogin ? t('auth.noAccount') : t('auth.haveAccount') }}</span>
-          <button class="btn btn-text" @click="Switch()">
+          <button class="btn btn-text" type="button" @click="switchMode">
             {{ isLogin ? t('auth.createOne') : t('auth.signIn') }}
           </button>
         </div>
@@ -200,6 +356,7 @@ const onForgotPassword = async (e?: Event) => {
     </div>
   </div>
 </template>
+
 <style lang="css" scoped>
 .auth-view {
   min-height: 100vh;
@@ -232,12 +389,43 @@ const onForgotPassword = async (e?: Event) => {
   gap: var(--space-3);
 }
 
+.auth-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.input--invalid {
+  border-color: var(--color-danger, #ef4444);
+}
+
+.field-feedback,
+.form-feedback,
+.reset-feedback {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.field-feedback--error,
+.form-feedback--error,
+.reset-feedback--error {
+  color: var(--color-danger, #ef4444);
+}
+
+.field-feedback--hint {
+  color: var(--color-muted);
+}
+
+.reset-feedback--success {
+  color: var(--color-success, #10b981);
+}
+
 .btn-text {
   background: transparent;
   border: 1px solid transparent;
   color: var(--color-primary);
   padding: 0;
 }
+
 .btn-text:hover {
   text-decoration: underline;
   background: transparent;
@@ -287,19 +475,6 @@ const onForgotPassword = async (e?: Event) => {
   line-height: 1.2;
   display: inline-flex;
   align-items: baseline;
-}
-
-.reset-feedback {
-  font-size: 0.875rem;
-  margin: 0;
-}
-
-.reset-feedback--success {
-  color: var(--color-success, #10b981);
-}
-
-.reset-feedback--error {
-  color: var(--color-danger, #ef4444);
 }
 
 .reset-modal-overlay {

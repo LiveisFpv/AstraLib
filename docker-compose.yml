@@ -1,0 +1,232 @@
+services:
+  nginx:
+    image: nginx:stable-alpine
+    depends_on:
+      frontend:
+        condition: service_started
+      gateway:
+        condition: service_started
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      NGINX_MODE: ${NGINX_MODE:-auto}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        case "$${NGINX_MODE}" in
+          auto)
+            template=http
+            if [ -f "/etc/letsencrypt/live/$${APP_DOMAIN}/fullchain.pem" ]; then
+              template=https
+            fi
+            ;;
+          cloudflared|origin-http)
+            template=origin-http
+            ;;
+          http|acme)
+            template=http
+            ;;
+          https)
+            template=https
+            ;;
+          *)
+            echo "Unsupported NGINX_MODE=$${NGINX_MODE}" >&2
+            exit 1
+            ;;
+        esac
+        envsubst '$${APP_DOMAIN}' < "/etc/nginx/alib-templates/$${template}.conf.template" > /etc/nginx/conf.d/default.conf
+        exec nginx -g 'daemon off;'
+    volumes:
+      - ./deploy/nginx/templates:/etc/nginx/alib-templates:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-etc:/etc/letsencrypt:ro
+    restart: unless-stopped
+    networks:
+      - public
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost}
+        VITE_FRONTEND_BASE_URL: ${VITE_FRONTEND_BASE_URL:-http://localhost}
+        VITE_SSO_CLIENT_ID_URL: ${VITE_SSO_CLIENT_ID_URL:-http://localhost/api}
+        VITE_ALIB_API_URL: ${VITE_ALIB_API_URL:-/api}
+    expose:
+      - "80"
+    restart: unless-stopped
+    networks:
+      - public
+
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: dockerfile
+    environment:
+      DOMAIN: ${GATEWAY_DOMAIN:-localhost}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
+      ALLOWED_REDIRECT_URLS: ${ALLOWED_REDIRECT_URLS:-http://localhost}
+      ALLOWED_CORS_ORIGINS: ${ALLOWED_CORS_ORIGINS:-http://localhost}
+      HTTP_PORT: 8080
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      SWAGGER_USER: ${SWAGGER_USER:-}
+      SWAGGER_PASSWORD: ${SWAGGER_PASSWORD:-}
+      GRPC_TIMEOUT: ${GRPC_TIMEOUT:-24h}
+      AI_GRPC_ADDR: semantic-service:${SEMANTIC_PORT:-5104}
+      SSO_HTTP_URL: ${SSO_HTTP_URL:-https://id.liveisfpv.ru}
+    expose:
+      - "8080"
+    depends_on:
+      semantic-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - public
+      - backend
+
+  semantic-service:
+    build:
+      context: ./services/semantic
+      dockerfile: Dockerfile
+    image: alib-semantic-service:latest
+    command: ["python", "cmd/main.py"]
+    environment: &semantic-env
+      LOGSTASH_HOST: ${LOGSTASH_HOST:-}
+      LOGSTASH_PORT: ${LOGSTASH_PORT:-0}
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+      SEMANTIC_PORT: ${SEMANTIC_PORT:-5104}
+      SEMANTIC_HOST: 0.0.0.0
+      DB_HOST: semantic-postgres
+      DB_PORT: ${SEMANTIC_DB_PORT:-5432}
+      DB_USER: ${SEMANTIC_DB_USER:-postgres}
+      DB_PASSWORD: ${SEMANTIC_DB_PASSWORD:-password}
+      DB_NAME: ${SEMANTIC_DB_NAME:-semantic_db}
+      SSLMode: ${SEMANTIC_DB_SSL_MODE:-disable}
+      FAISS_INDEX_PATH: ${FAISS_INDEX_PATH:-data/index/faiss_both.index}
+      FAISS_DOC_IDS_PATH: ${FAISS_DOC_IDS_PATH:-data/index/doc_ids_both.npy}
+      EMBEDDING_MODEL_NAME: ${EMBEDDING_MODEL_NAME:-intfloat/multilingual-e5-large}
+      EMBEDDING_BATCH_SIZE: ${EMBEDDING_BATCH_SIZE:-128}
+      EMBEDDING_LORA_PATH: ${EMBEDDING_LORA_PATH:-}
+      OPENALEX_EMAIL: ${OPENALEX_EMAIL:-}
+      PIPELINE_OPENALEX_EN: ${PIPELINE_OPENALEX_EN:-1000000}
+      PIPELINE_OPENALEX_RU: ${PIPELINE_OPENALEX_RU:-550000}
+      PIPELINE_OPENALEX_CHUNK: ${PIPELINE_OPENALEX_CHUNK:-50000}
+      INGESTION_SCHEDULER_ENABLED: ${INGESTION_SCHEDULER_ENABLED:-true}
+      INGESTION_OPENALEX_ENABLED: ${INGESTION_OPENALEX_ENABLED:-false}
+      INGESTION_OPENALEX_LIMIT: ${INGESTION_OPENALEX_LIMIT:-100}
+      INGESTION_OPENALEX_INTERVAL_SECONDS: ${INGESTION_OPENALEX_INTERVAL_SECONDS:-3600}
+      INGESTION_OPENALEX_LANGUAGES: ${INGESTION_OPENALEX_LANGUAGES:-en,ru}
+      INGESTION_WEIGHTED_RUNTIME_REQUIRED: ${INGESTION_WEIGHTED_RUNTIME_REQUIRED:-false}
+    expose:
+      - "${SEMANTIC_PORT:-5104}"
+    volumes:
+      - ./services/semantic/data:/app/data
+      - hf-cache:/cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "scripts/healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 120s
+    depends_on:
+      semantic-migrator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      - backend
+      - storage
+
+  semantic-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${SEMANTIC_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${SEMANTIC_DB_PASSWORD:-password}
+      POSTGRES_DB: ${SEMANTIC_DB_NAME:-semantic_db}
+    ports:
+      - "${SEMANTIC_DB_PUBLIC_PORT:-15432}:${SEMANTIC_DB_PORT:-5432}"
+    volumes:
+      - postgres-semantic-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - storage
+
+  semantic-migrator:
+    build:
+      context: ./services/semantic
+      dockerfile: ./tools/migrator/dockerfile
+    environment:
+      DB_HOST: semantic-postgres
+      DB_PORT: ${SEMANTIC_DB_PORT:-5432}
+      DB_USER: ${SEMANTIC_DB_USER:-postgres}
+      DB_PASSWORD: ${SEMANTIC_DB_PASSWORD:-password}
+      DB_NAME: ${SEMANTIC_DB_NAME:-semantic_db}
+    depends_on:
+      semantic-postgres:
+        condition: service_healthy
+    networks:
+      - storage
+
+  pipeline-worker:
+    image: alib-semantic-service:latest
+    command: ["python", "scripts/run_pipeline.py", "--mode", "serve"]
+    environment:
+      <<: *semantic-env
+      PIPELINE_LOG_LEVEL: ${PIPELINE_LOG_LEVEL:-INFO}
+    volumes:
+      - ./services/semantic/data:/app/data
+      - hf-cache:/cache/huggingface
+    depends_on:
+      semantic-migrator:
+        condition: service_completed_successfully
+      semantic-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - storage
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles:
+      - certbot
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-etc:/etc/letsencrypt
+    networks:
+      - public
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles:
+      - cloudflared
+    command: tunnel --no-autoupdate --protocol http2 run --token ${CLOUDFLARED_TOKEN:-}
+    depends_on:
+      nginx:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - public
+
+networks:
+  public:
+    driver: bridge
+  backend:
+    driver: bridge
+  storage:
+    driver: bridge
+
+volumes:
+  hf-cache:
+  postgres-semantic-data:
+  certbot-www:
+  certbot-etc:

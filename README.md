@@ -24,6 +24,52 @@ ALib/
 Подсистема аутентификации не входит в данный репозиторий, т.к. является заменяемым компонентом.
 Frontend и Gateway интегрируются с внешним SSO по HTTP API (логин/логаут/refresh/профиль/пользователи) и могут быть настроены на любой совместимый провайдер.
 Для фронтенда параметры интеграции задаются через переменные окружения (см. `apps/frontend/README.md`).
+
+## Быстрый запуск всего сервиса через Docker Compose
+
+1. Скопируйте пример окружения:
+
+```bash
+cp .env.example .env
+```
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. При необходимости отредактируйте `.env`: SSO URL, порты, пароль PostgreSQL, пути FAISS-индекса и настройки ingestion.
+3. Для деплоя с HTTPS укажите в `.env` реальный публичный домен `APP_DOMAIN` и email `CERTBOT_EMAIL`, затем выпустите сертификат и запустите стек:
+
+```bash
+make first-deploy
+```
+
+Отдельные полезные команды:
+
+```bash
+make cert-init
+make cert-renew
+make deploy
+```
+
+4. Для запуска через Cloudflare Tunnel укажите в `.env` `APP_DOMAIN`, публичные URL, `CLOUDFLARED_TOKEN`, затем запустите:
+
+```bash
+make cloudflared-deploy
+```
+
+В этом режиме Let's Encrypt сертификат на сервере не нужен: TLS завершается на Cloudflare, а `cloudflared` ходит в nginx по внутреннему HTTP.
+
+5. Если нужен запуск без Makefile, запустите весь стек из корня проекта:
+
+```bash
+docker compose up -d --build
+```
+
+Nginx будет доступен на `https://<APP_DOMAIN>` после выпуска сертификата: `/` проксируется во frontend, `/api/` и `/swagger/` - в gateway. До выпуска сертификата nginx стартует в HTTP-only режиме только для ACME challenge.
+
 ## Быстрый старт (локально)
 > [!TIP]
 > В репозитории есть отдельные `docker-compose.yml` внутри сервисов. Для запуска конкретного компонента перейдите в его каталог и следуйте README.

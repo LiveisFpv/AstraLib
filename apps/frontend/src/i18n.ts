@@ -9,7 +9,7 @@ function loadLocale(): Locale {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved === 'en' || saved === 'ru') return saved
   } catch {}
-  return 'en'
+  return 'ru'
 }
 
 export const locale = ref<Locale>(loadLocale())

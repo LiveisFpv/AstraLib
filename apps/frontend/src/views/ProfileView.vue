@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import LeftTab from '@/components/LeftTab.vue'
 import UpTab from '@/components/UpTab.vue'
 import { useAuthStore } from '@/stores/authStore'
@@ -8,6 +9,7 @@ import { useI18n } from '@/i18n'
 import { useLayoutInset } from '@/composables/useLayoutInset'
 
 const auth = useAuthStore()
+const router = useRouter()
 const { t } = useI18n()
 const { LeftTabHidden: leftHidden, layoutInset } = useLayoutInset()
 
@@ -124,6 +126,11 @@ async function saveProfile() {
     saving.value = false
   }
 }
+
+async function handleLogout() {
+  await auth.logout()
+  await router.replace('/auth')
+}
 </script>
 
 <template>
@@ -214,7 +221,8 @@ async function saveProfile() {
           <button class="btn" @click="startEditing">{{ t('profile.btn.edit') }}</button>
           <button
             class="btn btn--primary"
-            @click="auth.logout().then(() => $router.replace('/auth'))"
+            :disabled="auth.isLoggingOut"
+            @click="handleLogout"
           >
             {{ t('profile.btn.logout') }}
           </button>

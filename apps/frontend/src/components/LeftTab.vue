@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
   <div class="left-tab" :class="{ hidden: leftTabHidden }">
     <div class="header" :class="{ hidden: leftTabHidden }">
       <button class="btn btn-icon" type="button" @click="RedirecttoHome" aria-label="Home">
-        <img src="/src/assets/book-logo.svg" alt="L" class="logo" />
+        <img src="/src/assets/book-logo.svg" alt="L" class="logo brand-logo" />
       </button>
       <button
         class="btn btn-icon sidebar-toggle"
@@ -714,8 +714,11 @@ onBeforeUnmount(() => {
   transform: translateY(1px);
 }
 .btn-icon .logo {
-  width: 1.2em;
-  height: 1.2em;
+  width: 40px;
+  height: 40px;
+}
+.brand-logo {
+  filter: none;
 }
 .sidebar-toggle .chevron {
   width: 14px;

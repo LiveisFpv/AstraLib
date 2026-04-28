@@ -96,12 +96,17 @@ function clearFormError() {
   formError.value = ''
 }
 
-function switchMode() {
+function setAuthMode(mode: AuthMode) {
+  if (authMode.value === mode) return
   formError.value = ''
-  authMode.value = isLogin.value ? 'signup' : 'login'
+  authMode.value = mode
   touched.confirmPassword = false
   touched.firstName = false
   touched.lastName = false
+}
+
+function switchMode() {
+  setAuthMode(isLogin.value ? 'signup' : 'login')
 }
 
 const openResetDialog = async (e: Event) => {
@@ -191,10 +196,42 @@ const onForgotPassword = async (e?: Event) => {
 <template>
   <div class="auth-view">
     <div class="card auth-card">
-      <div class="login-view">
-        <h2 class="auth-title">{{ isLogin ? t('auth.login') : t('auth.signup') }}</h2>
+      <span class="book-spine" aria-hidden="true"></span>
+      <span class="book-ribbon" aria-hidden="true"></span>
+      <header class="auth-header">
+        <div class="brand-lockup">
+          <img class="brand-logo" src="/src/assets/logo.svg" alt="" />
+          <!-- <h1 class="auth-title">{{ isLogin ? t('auth.login') : t('auth.signup') }}</h1> -->
+        </div>
+      </header>
+
+      <!-- <div class="mode-switch" role="tablist" :aria-label="t('auth.login')">
+        <button
+          class="mode-switch__button"
+          :class="{ active: isLogin }"
+          type="button"
+          role="tab"
+          :aria-selected="isLogin"
+          @click="setAuthMode('login')"
+        >
+          {{ t('auth.login') }}
+        </button>
+        <button
+          class="mode-switch__button"
+          :class="{ active: !isLogin }"
+          type="button"
+          role="tab"
+          :aria-selected="!isLogin"
+          @click="setAuthMode('signup')"
+        >
+          {{ t('auth.signup') }}
+        </button>
+      </div> -->
+
+      <div class="auth-body">
         <form class="auth-form" @submit.prevent="onSubmit">
           <div class="auth-field">
+            <label class="field-label" for="email">{{ t('auth.email') }}</label>
             <input
               v-model.trim="draft.email"
               type="email"
@@ -212,6 +249,7 @@ const onForgotPassword = async (e?: Event) => {
             </p>
           </div>
           <div v-if="!isLogin" class="auth-field">
+            <label class="field-label" for="lastname">{{ t('auth.lastname') }}</label>
             <input
               v-model.trim="draft.lastName"
               type="text"
@@ -229,6 +267,7 @@ const onForgotPassword = async (e?: Event) => {
             </p>
           </div>
           <div v-if="!isLogin" class="auth-field">
+            <label class="field-label" for="firstname">{{ t('auth.firstname') }}</label>
             <input
               v-model.trim="draft.firstName"
               type="text"
@@ -246,6 +285,7 @@ const onForgotPassword = async (e?: Event) => {
             </p>
           </div>
           <div class="auth-field">
+            <label class="field-label" for="password">{{ t('auth.password') }}</label>
             <input
               v-model="draft.password"
               type="password"
@@ -267,6 +307,7 @@ const onForgotPassword = async (e?: Event) => {
             </p>
           </div>
           <div v-if="!isLogin" class="auth-field">
+            <label class="field-label" for="confirmpassword">{{ t('auth.confirmPassword') }}</label>
             <input
               v-model="draft.confirmPassword"
               type="password"
@@ -290,15 +331,20 @@ const onForgotPassword = async (e?: Event) => {
           <button class="btn btn--primary" type="submit" :disabled="isSubmitting">
             {{ isSubmitting ? t('common.loading') : isLogin ? t('auth.login') : t('auth.signup') }}
           </button>
-          <button
-            class="btn btn-text"
-            type="button"
-            :disabled="isResetSubmitting"
-            @click="openResetDialog"
-          >
-            {{ t('auth.forgot') }}
-          </button>
+          <div class="form-footer">
+            <button
+              class="btn btn-text"
+              type="button"
+              :disabled="isResetSubmitting"
+              @click="openResetDialog"
+            >
+              {{ t('auth.forgot') }}
+            </button>
+          </div>
         </form>
+
+        <div class="auth-divider" aria-hidden="true"></div>
+
         <div class="oauth">
           <button class="btn oauth-btn" @click="authStore.oauth('google', '/')">
             <img src="/src/assets/google-icon.svg" alt="Google" class="logo oauth-logo" />
@@ -319,8 +365,22 @@ const onForgotPassword = async (e?: Event) => {
     </div>
     <div v-if="isResetOpen" class="reset-modal-overlay" @click.self="closeResetDialog">
       <div class="reset-modal" role="dialog" aria-modal="true">
-        <h3 class="reset-title">{{ t('auth.resetTitle') }}</h3>
-        <p class="reset-description">{{ t('auth.resetDescription') }}</p>
+        <!-- <span class="reset-ribbon" aria-hidden="true"></span> -->
+        <header class="reset-header">
+          <div>
+            <h2 class="reset-title">{{ t('auth.resetTitle') }}</h2>
+            <p class="reset-description">{{ t('auth.resetDescription') }}</p>
+          </div>
+          <button
+            class="btn reset-close"
+            type="button"
+            :aria-label="t('auth.resetClose')"
+            :disabled="isResetSubmitting"
+            @click="closeResetDialog"
+          >
+            x
+          </button>
+        </header>
         <form class="reset-form" @submit.prevent="onForgotPassword()">
           <label class="reset-label" for="reset-email">{{ t('auth.email') }}</label>
           <input
@@ -340,7 +400,7 @@ const onForgotPassword = async (e?: Event) => {
           </p>
           <div class="reset-actions">
             <button
-              class="btn"
+              class="btn reset-secondary"
               type="button"
               :disabled="isResetSubmitting"
               @click="closeResetDialog"
@@ -362,36 +422,223 @@ const onForgotPassword = async (e?: Event) => {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-4);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--color-bg), var(--color-accent) 5%),
+      var(--color-bg) 48%
+    ),
+    var(--color-bg);
 }
 
 .auth-card {
+  position: relative;
   width: 100%;
-  max-width: 440px;
-  padding: var(--space-6);
+  max-width: 456px;
+  padding: 22px 24px 24px 58px;
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-4);
+  border-radius: 8px;
+  isolation: isolate;
+  box-shadow:
+    0 18px 48px rgba(2, 6, 23, 0.12),
+    inset -5px 0 0 color-mix(in oklab, var(--color-border), transparent 35%);
 }
 
-.login-view,
-.signup-view {
+.auth-card::before {
+  top: 10px;
+  right: -7px;
+  bottom: 13px;
+  width: 12px;
+  border: 1px solid color-mix(in oklab, var(--color-border), transparent 14%);
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--color-surface), black 3%),
+      color-mix(in oklab, var(--color-surface), var(--color-bg-secondary) 22%)
+    );
+  z-index: -1;
+}
+
+.auth-card::after {
+  left: 48px;
+  right: 15px;
+  bottom: -8px;
+  height: 12px;
+  border: 1px solid color-mix(in oklab, var(--color-border), transparent 16%);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: repeating-linear-gradient(
+    0deg,
+    color-mix(in oklab, var(--color-surface), var(--color-bg-secondary) 18%) 0 2px,
+    color-mix(in oklab, var(--color-border), transparent 46%) 2px 3px
+  );
+  z-index: -1;
+}
+
+.auth-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.book-spine {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40px;
+  border-radius: 8px 0 0 8px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.16), transparent 28%),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-primary), var(--color-surface) 12%),
+      color-mix(in oklab, var(--color-accent), var(--color-primary) 34%)
+    );
+  box-shadow:
+    inset -8px 0 12px rgba(2, 6, 23, 0.16),
+    inset 1px 0 0 rgba(255, 255, 255, 0.22);
+  z-index: 1;
+}
+
+.book-ribbon {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  width: 20px;
+  height: 118px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  background: linear-gradient(180deg, var(--color-accent), var(--color-primary));
+  box-shadow: 0 10px 20px color-mix(in oklab, var(--color-primary), transparent 74%);
+  z-index: 3;
+}
+
+.auth-header {
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-1);
+}
+
+.brand-lockup {
+  display: inline-flex;
+  justify-self: center;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.brand-logo {
+  width: auto;
+  height: 80px;
+  filter: none;
 }
 
 .auth-title {
-  text-align: center;
   margin: 0;
+  font-size: 1.18rem;
+  letter-spacing: 0;
 }
 
-.auth-form {
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  margin: -4px auto 0;
+  width: min(100%, 360px);
+}
+
+.mode-switch__button {
+  position: relative;
+  min-height: 32px;
+  padding: 0 var(--space-2) 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: color-mix(in oklab, var(--color-muted), var(--color-text) 16%);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.15;
+  transition:
+    color var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.mode-switch__button::after {
+  content: '';
+  position: absolute;
+  right: 34%;
+  bottom: 0;
+  left: 34%;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+  opacity: 0;
+  transform: scaleX(0.72);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.mode-switch__button:hover {
+  color: var(--color-text);
+}
+
+.mode-switch__button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--color-primary), transparent 18%);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.mode-switch__button.active {
+  color: color-mix(in oklab, var(--color-text), var(--color-primary) 10%);
+}
+
+.mode-switch__button.active::after {
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.auth-body {
   display: grid;
   gap: var(--space-3);
 }
 
+.auth-form {
+  display: grid;
+  gap: 10px;
+}
+
 .auth-field {
   display: grid;
-  gap: var(--space-2);
+  gap: 5px;
+}
+
+.field-label,
+.reset-label {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.input {
+  min-height: 39px;
+  padding-block: 0.45rem;
+  border-radius: 8px;
+  border-color: var(--color-border);
+  background: color-mix(in oklab, var(--color-surface), var(--color-bg-secondary) 10%);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-focus), transparent 62%);
 }
 
 .input--invalid {
@@ -401,7 +648,8 @@ const onForgotPassword = async (e?: Event) => {
 .field-feedback,
 .form-feedback,
 .reset-feedback {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
   margin: 0;
 }
 
@@ -415,8 +663,32 @@ const onForgotPassword = async (e?: Event) => {
   color: var(--color-muted);
 }
 
+.form-feedback {
+  padding: var(--space-2) var(--space-3);
+  border-radius: 8px;
+  border: 1px solid color-mix(in oklab, var(--color-danger), transparent 62%);
+  background: color-mix(in oklab, var(--color-danger), transparent 88%);
+}
+
 .reset-feedback--success {
   color: var(--color-success, #10b981);
+}
+
+.btn {
+  padding-block: 0.6rem;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.btn--primary {
+  background: linear-gradient(135deg, var(--color-primary), color-mix(in oklab, var(--color-primary), var(--color-accent) 22%));
+  box-shadow: 0 10px 22px color-mix(in oklab, var(--color-primary), transparent 78%);
+}
+
+.form-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
 }
 
 .btn-text {
@@ -424,6 +696,7 @@ const onForgotPassword = async (e?: Event) => {
   border: 1px solid transparent;
   color: var(--color-primary);
   padding: 0;
+  height: 20px;
 }
 
 .btn-text:hover {
@@ -431,31 +704,42 @@ const onForgotPassword = async (e?: Event) => {
   background: transparent;
 }
 
+.auth-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-border), var(--color-accent) 8%),
+    transparent
+  );
+}
+
 .oauth {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .oauth-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   width: 100%;
   justify-content: center;
-  background: var(--color-surface);
+  background: color-mix(in oklab, var(--color-surface), var(--color-bg-secondary) 12%);
   border: 1px solid var(--color-border);
+  border-radius: 8px;
   line-height: 1.2;
 }
 
 .oauth-btn:hover {
-  background: color-mix(in oklab, var(--color-surface), var(--color-text) 3%);
-  border-color: var(--color-border);
+  background: var(--color-surface);
+  border-color: color-mix(in oklab, var(--color-border), var(--color-primary) 18%);
 }
 
 .oauth-logo {
   filter: none !important;
-  width: 1.2em;
-  height: 1.2em;
+  width: 1.05em;
+  height: 1.05em;
   flex-shrink: 0;
 }
 
@@ -469,6 +753,8 @@ const onForgotPassword = async (e?: Event) => {
   gap: var(--space-2);
   align-items: baseline;
   justify-content: center;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
 }
 
 .btn-text {
@@ -480,31 +766,61 @@ const onForgotPassword = async (e?: Event) => {
 .reset-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(15, 23, 42, 0.68);
   display: grid;
   place-items: center;
   padding: var(--space-4);
   z-index: 1000;
+  backdrop-filter: blur(6px);
 }
 
 .reset-modal {
+  position: relative;
   background: var(--color-surface);
   color: var(--color-text);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
   padding: var(--space-6);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 20px 56px rgba(2, 6, 23, 0.22);
   width: min(420px, 100%);
   display: grid;
   gap: var(--space-3);
+  overflow: hidden;
+}
+
+.reset-ribbon {
+  position: absolute;
+  top: -6px;
+  left: 22px;
+  width: 18px;
+  height: 78px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  background: linear-gradient(180deg, var(--color-accent), var(--color-primary));
+  box-shadow: 0 8px 18px color-mix(in oklab, var(--color-primary), transparent 78%);
+}
+
+.reset-modal > * {
+  position: relative;
+  z-index: 1;
+}
+
+.reset-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-3);
+  align-items: start;
 }
 
 .reset-title {
   margin: 0;
+  font-size: 1.1rem;
 }
 
 .reset-description {
-  margin: 0;
+  margin: var(--space-1) 0 0;
   color: var(--color-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .reset-form {
@@ -512,15 +828,101 @@ const onForgotPassword = async (e?: Event) => {
   gap: var(--space-3);
 }
 
-.reset-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
+.reset-close {
+  min-width: 34px;
+  width: 34px;
+  min-height: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--color-muted);
+}
+
+.reset-secondary {
+  background: transparent;
 }
 
 .reset-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+@media (max-height: 760px) and (min-width: 640px) {
+  .auth-view {
+    align-items: start;
+    padding-block: var(--space-3);
+  }
+
+  .auth-card {
+    padding: var(--space-4) var(--space-4) var(--space-4) 48px;
+    gap: var(--space-3);
+  }
+
+  .book-spine {
+    width: 32px;
+  }
+
+  .book-ribbon {
+    left: 9px;
+    width: 16px;
+    height: 94px;
+  }
+
+  .auth-body,
+  .auth-form {
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 520px) {
+  .auth-view {
+    padding: var(--space-3);
+    place-items: stretch;
+  }
+
+  .auth-card {
+    max-width: none;
+    padding: var(--space-4) var(--space-4) var(--space-4) 44px;
+  }
+
+  .auth-card::before {
+    right: -5px;
+    width: 9px;
+  }
+
+  .auth-card::after {
+    left: 38px;
+    right: 12px;
+  }
+
+  .book-spine {
+    width: 28px;
+  }
+
+  .book-ribbon {
+    left: 8px;
+    width: 14px;
+    height: 88px;
+  }
+
+  .mode-switch__button {
+    min-height: 31px;
+    padding-inline: 2px;
+    font-size: 0.88rem;
+  }
+
+  .mode-switch__button::after {
+    right: 30%;
+    left: 30%;
+  }
+
+  .reset-actions {
+    flex-direction: column-reverse;
+  }
+
+  .reset-actions .btn {
+    width: 100%;
+  }
 }
 </style>

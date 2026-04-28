@@ -20,6 +20,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
   const AccessToken = ref<string | null>(initial) // ! Replace to initial
   const isAuthenticated = computed(() => !!AccessToken.value)
+  const isLoggingOut = ref(false)
+  const didExplicitLogout = ref(false)
   const User = ref<User | null>(null)
   const roles = computed<string[]>(() =>
     (User.value?.roles ?? []).map((r) => r?.toUpperCase?.() || r),
@@ -53,6 +55,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(email: string, password: string) {
     try {
+      didExplicitLogout.value = false
       const payload = <UserLoginRequest>{
         login: email,
         password: password,
@@ -81,10 +84,22 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    clearSession()
+    if (isLoggingOut.value) return
+    isLoggingOut.value = true
     try {
-      const res = await SSOApi.logout()
-    } catch {}
+      await SSOApi.logout()
+    } catch (e: any) {
+      if (e?.status === 401) {
+        try {
+          await refreshToken()
+          await SSOApi.logout()
+        } catch {}
+      }
+    } finally {
+      didExplicitLogout.value = true
+      clearSession()
+      isLoggingOut.value = false
+    }
   }
   async function refreshToken() {
     try {
@@ -96,6 +111,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function restoreSession() {
+    if (didExplicitLogout.value) return false
     try {
       await refreshToken()
       await authenticate()
@@ -143,6 +159,7 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     AccessToken,
     isAuthenticated,
+    isLoggingOut,
     User,
     roles,
     isAdmin,

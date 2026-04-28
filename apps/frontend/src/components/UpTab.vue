@@ -68,7 +68,7 @@ async function handleCopyActiveChat() {
 </script>
 <template>
   <div class="up-tab" :class="{ collapsed: useSetting.LeftTabHidden }">
-    <img class="logo" src="/src/assets/logo.svg" style="width: auto; height: 40px" />
+    <img class="logo brand-logo" src="/src/assets/text-logo.svg" style="width: auto; height: 40px" />
     <div class="button-group">
       <button
         class="btn avatar"
@@ -92,7 +92,12 @@ async function handleCopyActiveChat() {
       <button class="btn btn-icon" @click="RedirecttoAuth" v-if="!authStore.isAuthenticated">
         {{ t('auth.login') }}
       </button>
-      <button class="btn btn-icon" v-if="authStore.isAuthenticated" @click="handleLogout">
+      <button
+        class="btn btn-icon"
+        v-if="authStore.isAuthenticated"
+        :disabled="authStore.isLoggingOut"
+        @click="handleLogout"
+      >
         <img class="logo" src="/src/assets/logout-icon.svg" alt="[->" />
       </button>
     </div>
@@ -142,6 +147,9 @@ async function handleCopyActiveChat() {
 .btn-icon .logo {
   width: 1.2em;
   height: 1.2em;
+}
+.brand-logo {
+  filter: none;
 }
 .btn.avatar {
   width: 40px;

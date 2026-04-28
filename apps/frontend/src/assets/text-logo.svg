@@ -1,0 +1,44 @@
+<svg
+  width="220"
+  height="70"
+  viewBox="0 0 220 70"
+  role="img"
+  aria-labelledby="astralib-text-logo-title"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <title id="astralib-text-logo-title">AstraLib - Intelligent paper explorer</title>
+  <style>
+    .wordmark {
+      fill: #13213a;
+    }
+
+    .tagline {
+      fill: #667085;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .wordmark {
+        fill: #e2e8f0;
+      }
+
+      .tagline {
+        fill: #94a3b8;
+      }
+    }
+  </style>
+  <g font-family="Inter, 'Segoe UI', Arial, sans-serif">
+    <text
+      class="wordmark"
+      x="0"
+      y="40"
+      font-size="48"
+      font-weight="750"
+      letter-spacing="-1.2"
+    >
+      AstraLib
+    </text>
+    <text class="tagline" x="2" y="63" font-size="18" font-weight="500" letter-spacing="0">
+      Intelligent paper explorer
+    </text>
+  </g>
+</svg>

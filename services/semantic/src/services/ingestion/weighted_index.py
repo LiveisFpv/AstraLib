@@ -45,7 +45,16 @@ def maybe_create_weighted_index_manager(
     weights = meta.get("weights")
     if not isinstance(weights, dict):
         if required:
-            raise RuntimeError("Weighted runtime is required but FAISS meta has no weights")
+            meta_path = getattr(index, "meta_path", None)
+            index_path = getattr(index, "index_path", None)
+            doc_ids_path = getattr(index, "doc_ids_path", None)
+            raise RuntimeError(
+                "Weighted runtime is required but FAISS meta has no weights "
+                f"(index_path={index_path}, index_exists={Path(index_path).exists() if index_path else None}, "
+                f"doc_ids_path={doc_ids_path}, doc_ids_exists={Path(doc_ids_path).exists() if doc_ids_path else None}, "
+                f"meta_path={meta_path}, meta_exists={Path(meta_path).exists() if meta_path else None}, "
+                f"meta_keys={sorted(meta.keys())})"
+            )
         return None
     return CitationIndexManager(
         index=index,

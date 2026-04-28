@@ -1312,12 +1312,12 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "0.1",
+	Version:          "1.0",
 	Host:             "localhost:8080",
 	BasePath:         "/api",
 	Schemes:          []string{},
-	Title:            "ALib API",
-	Description:      "ALib для поиска различной научной информации",
+	Title:            "AstraLib API",
+	Description:      "AstraLib для поиска различной научной информации",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-// @title ALib API
-// @version 0.1
-// @description ALib для поиска различной научной информации
+// @title AstraLib API
+// @version 1.0
+// @description AstraLib для поиска различной научной информации
 // @host localhost:8080
 // @BasePath /api
 func main() {

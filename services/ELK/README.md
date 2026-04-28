@@ -1,7 +1,7 @@
 # ELK stack
 
 Данный репозиторий запускает минимальный ELK стек (Elasticsearch + Logstash + Kibana)
-для приема логов от сервисов ALib через TCP и просмотра в Kibana.
+для приема логов от сервисов AstraLib через TCP и просмотра в Kibana.
 
 ## Что входит
 

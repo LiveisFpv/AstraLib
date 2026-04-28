@@ -160,9 +160,9 @@ definitions:
 host: localhost:8080
 info:
   contact: {}
-  description: ALib для поиска различной научной информации
-  title: ALib API
-  version: "0.1"
+  description: AstraLib для поиска различной научной информации
+  title: AstraLib API
+  version: "1.0"
 paths:
   /chats:
     get:

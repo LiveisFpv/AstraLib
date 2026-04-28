@@ -1,4 +1,4 @@
-﻿# ALib Frontend
+﻿# AstraLib Frontend
 
 Фронтенд веб‑приложения на Vue 3 для интеллектуального поиска и управления публикациями со входом через SSO, ролями (USER/AUTHOR, MODERATOR, ADMIN), кабинетом автора и очередью модерации. Проект собран на Vite и TypeScript, использует Pinia, Vue Router и Axios.
 

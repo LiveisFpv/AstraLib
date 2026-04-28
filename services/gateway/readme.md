@@ -1,6 +1,6 @@
-# ALib Gateway Service
+# AstraLib Gateway Service
 
-HTTP gateway for the ALib semantic search stack. Exposes a REST API for chat,
+HTTP gateway for the AstraLib semantic search stack. Exposes a REST API for chat,
 author submissions, and moderation; validates JWT tokens via an external SSO
 service; and proxies requests to semantic-service over gRPC.
 

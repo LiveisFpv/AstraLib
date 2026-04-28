@@ -18,6 +18,11 @@ function RedirecttoAuth() {
   router.push('/auth')
 }
 
+async function handleLogout() {
+  await authStore.logout()
+  await router.replace('/auth')
+}
+
 const useSetting = useSettingStore()
 const { t } = useI18n()
 const chatStore = useChatStore()
@@ -87,7 +92,7 @@ async function handleCopyActiveChat() {
       <button class="btn btn-icon" @click="RedirecttoAuth" v-if="!authStore.isAuthenticated">
         {{ t('auth.login') }}
       </button>
-      <button class="btn btn-icon" v-if="authStore.isAuthenticated" @click="authStore.logout">
+      <button class="btn btn-icon" v-if="authStore.isAuthenticated" @click="handleLogout">
         <img class="logo" src="/src/assets/logout-icon.svg" alt="[->" />
       </button>
     </div>

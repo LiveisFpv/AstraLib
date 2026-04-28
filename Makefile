@@ -7,6 +7,7 @@ endif
 
 COMPOSE ?= docker compose --env-file $(ENV_FILE)
 DOMAIN ?= $(APP_DOMAIN)
+DEV_SERVICES ?= nginx-dev pipeline-worker
 CERTBOT_EMAIL_ARG := $(if $(CERTBOT_EMAIL),--email $(CERTBOT_EMAIL),--register-unsafely-without-email)
 CERTBOT_STAGING_ARG := $(if $(filter 1 true yes,$(CERTBOT_STAGING)),--staging,)
 
@@ -18,12 +19,13 @@ COPY_ENV := cp .env.example "$(ENV_FILE)"
 SET_NGINX_CLOUDFLARED := NGINX_MODE=cloudflared
 endif
 
-.PHONY: help env config build up down restart ps logs deploy first-deploy cloudflared-deploy cloudflared-up cloudflared-logs cert-init cert-renew cert-dry-run nginx-reload check-domain check-cloudflared-token
+.PHONY: help env config dev build up down restart ps logs deploy first-deploy cloudflared-deploy cloudflared-up cloudflared-logs cert-init cert-renew cert-dry-run nginx-reload check-domain check-cloudflared-token
 
 help:
 	@echo "ALib deployment commands"
 	@echo "  make env             Copy .env.example to .env if .env does not exist"
 	@echo "  make config          Validate docker compose config"
+	@echo "  make dev             Start full dev stack from root docker compose"
 	@echo "  make build           Build application images"
 	@echo "  make up              Start stack"
 	@echo "  make down            Stop stack"
@@ -41,6 +43,9 @@ env:
 
 config:
 	$(COMPOSE) config --quiet
+
+dev:
+	$(COMPOSE) --profile dev up --build $(DEV_SERVICES)
 
 build:
 	$(COMPOSE) build

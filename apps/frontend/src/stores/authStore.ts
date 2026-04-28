@@ -29,6 +29,11 @@ export const useAuthStore = defineStore('auth', () => {
   const isUserRole = computed(() => roles.value.includes('USER'))
   const isWriterRole = computed(() => roles.value.includes('AUTHOR'))
 
+  function clearSession() {
+    AccessToken.value = null
+    User.value = null
+  }
+
   async function authenticate() {
     try {
       const userRes = await SSOApi.authenticate()
@@ -42,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
         roles: userRes.roles,
       }
     } catch {
-      AccessToken.value = null
+      clearSession()
     }
   }
 
@@ -76,11 +81,10 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    clearSession()
     try {
-      AccessToken.value = null
       const res = await SSOApi.logout()
-    } finally {
-    }
+    } catch {}
   }
   async function refreshToken() {
     try {
@@ -88,6 +92,17 @@ export const useAuthStore = defineStore('auth', () => {
       AccessToken.value = res.access_token
     } finally {
       console.log('refresh')
+    }
+  }
+
+  async function restoreSession() {
+    try {
+      await refreshToken()
+      await authenticate()
+      return isAuthenticated.value
+    } catch {
+      clearSession()
+      return false
     }
   }
 
@@ -142,5 +157,7 @@ export const useAuthStore = defineStore('auth', () => {
     oauth,
     updateUser,
     requestPasswordReset,
+    clearSession,
+    restoreSession,
   }
 })

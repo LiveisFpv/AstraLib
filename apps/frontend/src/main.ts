@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, watch } from 'vue'
 import { createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/authStore'
 
@@ -51,11 +51,25 @@ app.use(pinia)
 app.use(router)
 
 // Auth bootstrap: refresh token and load user on app start
+const auth = useAuthStore(pinia)
 try {
-  const auth = useAuthStore(pinia)
-  await auth.authenticate()
+  await auth.restoreSession()
 } catch {
   // ignore bootstrap auth errors; user stays logged out
 }
+
+watch(
+  () => auth.isAuthenticated,
+  (isAuthenticated, wasAuthenticated) => {
+    if (isAuthenticated || !wasAuthenticated || router.currentRoute.value.meta?.public === true) {
+      return
+    }
+
+    router.replace({
+      path: '/auth',
+      query: { redirect: router.currentRoute.value.fullPath },
+    })
+  },
+)
 
 app.mount('#app')

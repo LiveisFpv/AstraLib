@@ -1,6 +1,7 @@
 import { useAuthStore } from '@/stores/authStore'
 import axios, { AxiosError } from 'axios'
 import { ALIB_API_URL } from '@/config'
+import { redirectToAuthAfterFailedRefresh } from '@/api/base/authRedirect'
 
 export const api = axios.create({
   baseURL: ALIB_API_URL,
@@ -18,8 +19,21 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-let isRefreshing = false
-let queue: Array<() => void> = []
+let refreshPromise: Promise<boolean> | null = null
+
+function refreshAccessToken(auth: ReturnType<typeof useAuthStore>) {
+  if (!refreshPromise) {
+    refreshPromise = auth
+      .refreshToken()
+      .then(() => true)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+
+  return refreshPromise
+}
 
 api.interceptors.response.use(
   (response) => response,
@@ -29,30 +43,13 @@ api.interceptors.response.use(
     const status = error.response?.status
     const reqUrl = (original?.url || '') as string
     const isRefreshCall = reqUrl.includes('/auth/refresh')
+    const isLogoutCall = reqUrl.includes('/auth/logout')
 
-    if (status === 401 && !(original as any)._retry && !isRefreshCall) {
-      let refreshOk = true
-      if (!isRefreshing) {
-        isRefreshing = true
-        try {
-          await auth.refreshToken()
-        } catch (e) {
-          refreshOk = false
-          // optionally clear access token on failed refresh
-          try {
-            if (auth.AccessToken) {
-              await auth.logout()
-            }
-          } catch {}
-        } finally {
-          isRefreshing = false
-          queue.forEach((res) => res())
-          queue = []
-        }
-      } else {
-        await new Promise<void>((res) => queue.push(res))
-      }
+    if (status === 401 && !(original as any)._retry && !isRefreshCall && !isLogoutCall) {
+      const refreshOk = await refreshAccessToken(auth)
       if (!refreshOk) {
+        auth.clearSession()
+        await redirectToAuthAfterFailedRefresh()
         return Promise.reject(normalizeApiError(error))
       }
       ;(original as any)._retry = true

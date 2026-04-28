@@ -48,6 +48,56 @@ services:
     networks:
       - public
 
+  nginx-dev:
+    profiles:
+      - dev
+    image: nginx:stable-alpine
+    depends_on:
+      frontend-dev:
+        condition: service_started
+      gateway:
+        condition: service_started
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      NGINX_MODE: origin-http
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        case "$${NGINX_MODE}" in
+          auto)
+            template=http
+            if [ -f "/etc/letsencrypt/live/$${APP_DOMAIN}/fullchain.pem" ]; then
+              template=https
+            fi
+            ;;
+          cloudflared|origin-http)
+            template=origin-http
+            ;;
+          http|acme)
+            template=http
+            ;;
+          https)
+            template=https
+            ;;
+          *)
+            echo "Unsupported NGINX_MODE=$${NGINX_MODE}" >&2
+            exit 1
+            ;;
+        esac
+        envsubst '$${APP_DOMAIN}' < "/etc/nginx/alib-templates/$${template}.conf.template" > /etc/nginx/conf.d/default.conf
+        exec nginx -g 'daemon off;'
+    volumes:
+      - ./deploy/nginx/templates:/etc/nginx/alib-templates:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-etc:/etc/letsencrypt:ro
+    restart: unless-stopped
+    networks:
+      - public
+
   frontend:
     build:
       context: ./apps/frontend
@@ -63,6 +113,30 @@ services:
     restart: unless-stopped
     networks:
       - public
+
+  frontend-dev:
+    profiles:
+      - dev
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+      target: dev
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost}
+      VITE_FRONTEND_BASE_URL: ${VITE_FRONTEND_BASE_URL:-http://localhost}
+      VITE_SSO_CLIENT_ID_URL: ${VITE_SSO_CLIENT_ID_URL:-http://localhost/api}
+      VITE_ALIB_API_URL: ${VITE_ALIB_API_URL:-/api}
+      CHOKIDAR_USEPOLLING: "1"
+    expose:
+      - "80"
+    volumes:
+      - ./apps/frontend:/app
+      - frontend-node-modules:/app/node_modules
+    restart: unless-stopped
+    networks:
+      public:
+        aliases:
+          - frontend
 
   gateway:
     build:
@@ -226,6 +300,7 @@ networks:
     driver: bridge
 
 volumes:
+  frontend-node-modules:
   hf-cache:
   postgres-semantic-data:
   certbot-www:

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { setAuthRedirectHandler } from '@/api/base/authRedirect'
 
 const Homeview = () => import('@/views/HomeView.vue')
 const AuthView = () => import('@/views/AuthView.vue')
@@ -17,11 +18,11 @@ const ModeratorDashboardView = () => import('@/views/ModeratorDashboardView.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', component: Homeview },
-    { path: '/auth', component: AuthView },
+    { path: '/', component: Homeview, meta: { requiresAuth: true } },
+    { path: '/auth', component: AuthView, meta: { public: true } },
     { path: '/profile', component: ProfileView, meta: { requiresAuth: true } },
     { path: '/settings', component: SettingsView, meta: { requiresAuth: true } },
-    { path: '/search/:uid', component: SearchView },
+    { path: '/search/:uid', component: SearchView, meta: { requiresAuth: true } },
     {
       path: '/paper/my',
       name: 'my-papers',
@@ -54,6 +55,10 @@ const router = createRouter({
   ],
 })
 
+setAuthRedirectHandler(async (redirect) => {
+  await router.replace({ path: '/auth', query: { redirect } })
+})
+
 // Global auth guard + redirect support
 function normalizeRole(r?: string): string | null {
   if (!r || typeof r !== 'string') return null
@@ -62,8 +67,14 @@ function normalizeRole(r?: string): string | null {
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  const isPublicRoute = to.meta?.public === true
+
+  if (!auth.isAuthenticated) {
+    await auth.restoreSession()
+  }
+
   // block private routes
-  if (to.meta?.requiresAuth && !auth.isAuthenticated) {
+  if (!isPublicRoute && !auth.isAuthenticated) {
     return { path: '/auth', query: { redirect: to.fullPath }, replace: true }
   }
   // prevent opening /auth when already logged in

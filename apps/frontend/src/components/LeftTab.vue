@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingStore } from '@/stores/settingStore'
 import { useChatStore } from '@/stores/chatStore'
@@ -41,21 +41,9 @@ function handleNewSearch() {
   router.push('/')
 }
 
-const props = defineProps<{
+defineProps<{
   hidden?: boolean
 }>()
-
-const hidden = computed(() => props.hidden)
-
-watch(
-  hidden,
-  (val) => {
-    if (typeof val === 'boolean' && val !== LeftTabHidden.value) {
-      LeftTabHidden.value = val
-    }
-  },
-  { immediate: true },
-)
 </script>
 <template>
   <div class="left-tab" :class="{ hidden: leftTabHidden }">

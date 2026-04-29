@@ -58,7 +58,7 @@ function chooseLang(l: 'en' | 'ru') {
 
 <template>
   <UpTab :show-menu="false" :show-upload="false" />
-  <LeftTab :hidden="true" />
+  <LeftTab />
 
   <div
     class="settings-area"

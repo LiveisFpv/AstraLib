@@ -103,7 +103,7 @@ async function submitForReview() {
 </script>
 <template>
   <UpTab :show-menu="false" :show-upload="false" />
-  <LeftTab :hidden="true" />
+  <LeftTab />
   <div
     class="paper-add"
     :class="{ collapsed: leftHidden }"

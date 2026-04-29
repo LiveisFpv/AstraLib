@@ -135,7 +135,7 @@ async function handleLogout() {
 
 <template>
   <UpTab :show-menu="false" :show-upload="false" />
-  <LeftTab :hidden="true" />
+  <LeftTab />
 
   <div
     class="profile-area"

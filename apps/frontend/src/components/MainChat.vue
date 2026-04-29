@@ -100,6 +100,10 @@ function formatTime(ts: number) {
   return timeFormatter.format(new Date(ts))
 }
 
+function formatScore(score: number) {
+  return t('paper.score').replace('{score}', String((score * 100).toFixed(1)))
+}
+
 function getLogViewport() {
   return logRef.value?.getViewport() ?? null
 }
@@ -482,7 +486,15 @@ onBeforeUnmount(() => {
                 >
                   <header class="paper-card__header">
                     <span v-if="paper.year" class="paper-card__year">{{ paper.year }}</span>
-                    <span v-if="paper.score" class="paper-card__score">{{t('paper.score').replace('{score}', String(Number(paper.score*100).toFixed(2)))}}</span>
+                    <span
+                      v-if="typeof paper.score === 'number'"
+                      class="paper-card__score"
+                      :data-tooltip="t('paper.scoreTooltip')"
+                      :aria-label="`${formatScore(paper.score)}. ${t('paper.scoreTooltip')}`"
+                      tabindex="0"
+                    >
+                      {{ formatScore(paper.score) }}
+                    </span>
                     <h3 class="paper-card__title">{{ paper.title }}</h3>
                   </header>
                   <p class="paper-card__abstract">{{ paper.abstract }}</p>
@@ -613,7 +625,6 @@ onBeforeUnmount(() => {
   padding: var(--space-4);
   display: grid;
   grid-template-rows: 1fr auto;
-  gap: var(--space-3);
   box-shadow: var(--shadow-elevated);
   transition: all var(--transition-slow) ease;
 }
@@ -761,12 +772,48 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 .paper-card__score {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   width: fit-content;
+  max-width: 100%;
   font-size: 0.75rem;
   color: var(--color-accent-muted);
   text-transform: uppercase;
   letter-spacing: 0;
   font-weight: 700;
+  outline: none;
+}
+.paper-card__score::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: max-content;
+  max-width: 220px;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 8px;
+  background: var(--color-panel);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-card);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-transform: none;
+  white-space: normal;
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+  transition:
+    opacity var(--transition-fast) ease,
+    transform var(--transition-fast) ease;
+}
+.paper-card__score:hover::after,
+.paper-card__score:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 .paper-card__title {
   margin: 0;
@@ -962,6 +1009,8 @@ onBeforeUnmount(() => {
 }
 
 .input-area {
+  position: relative;
+  z-index: 20;
   border: 1px solid var(--color-border-soft);
   border-radius: 20px;
   background-color: var(--color-panel-elevated);

@@ -110,6 +110,7 @@ const messages: Record<Locale, Record<string, string>> = {
     'papers.deleteConfirm': 'Delete this submission?',
     'papers.okSaved': 'Draft saved.',
     'paper.score':'Relevance: {score}%',
+    'paper.scoreTooltip': 'Based on semantic similarity and citation context',
 
     'paperEdit.title': 'Edit submission',
     'paperEdit.statusLabel': 'Current status:',
@@ -356,6 +357,7 @@ const messages: Record<Locale, Record<string, string>> = {
     'papers.errSave': 'Не удалось сохранить изменения.',
     'papers.okSaved': 'Изменения сохранены локально.',
     'paper.score':'Релевантность: {score}%',
+    'paper.scoreTooltip': 'На основе семантического сходства и цитирований.',
 
     'paperEdit.title': 'Редактирование заявки',
     'paperEdit.statusLabel': 'Текущий статус:',

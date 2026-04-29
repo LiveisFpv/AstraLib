@@ -109,7 +109,7 @@ const messages: Record<Locale, Record<string, string>> = {
     'papers.errDelete': 'Failed to delete submission.',
     'papers.deleteConfirm': 'Delete this submission?',
     'papers.okSaved': 'Draft saved.',
-    'paper.score':'Score: {score}',
+    'paper.score':'Relevance: {score}%',
 
     'paperEdit.title': 'Edit submission',
     'paperEdit.statusLabel': 'Current status:',
@@ -355,7 +355,7 @@ const messages: Record<Locale, Record<string, string>> = {
     'papers.errNotEditable': 'Статью нельзя редактировать, потому что она уже одобрена.',
     'papers.errSave': 'Не удалось сохранить изменения.',
     'papers.okSaved': 'Изменения сохранены локально.',
-    'paper.score':'Оценка: {score}',
+    'paper.score':'Релевантность: {score}%',
 
     'paperEdit.title': 'Редактирование заявки',
     'paperEdit.statusLabel': 'Текущий статус:',

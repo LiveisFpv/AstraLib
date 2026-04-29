@@ -482,7 +482,7 @@ onBeforeUnmount(() => {
                 >
                   <header class="paper-card__header">
                     <span v-if="paper.year" class="paper-card__year">{{ paper.year }}</span>
-                    <span v-if="paper.score" class="paper-card__score">{{t('paper.score').replace('{score}', String(paper.score.toFixed(3)))}}</span>
+                    <span v-if="paper.score" class="paper-card__score">{{t('paper.score').replace('{score}', String(Number(paper.score*100).toFixed(2)))}}</span>
                     <h3 class="paper-card__title">{{ paper.title }}</h3>
                   </header>
                   <p class="paper-card__abstract">{{ paper.abstract }}</p>

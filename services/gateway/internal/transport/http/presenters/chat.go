@@ -27,10 +27,26 @@ type ChatHistoryCreateRequest struct {
 	Text string `json:"text" binding:"required"`
 }
 
+type ChatPaper struct {
+	Id               string            `json:"id"`
+	Title            string            `json:"title"`
+	Abstract         string            `json:"abstract"`
+	Year             int               `json:"year"`
+	Best_oa_location string            `json:"best_oa_location"`
+	State            string            `json:"state"`
+	ReferencedWorks  []string          `json:"referenced_works"`
+	RelatedWorks     []string          `json:"related_works"`
+	CitedByCount     int               `json:"cited_by_count"`
+	Authors          []string          `json:"authors"`
+	Institutions     []string          `json:"institutions"`
+	Identifiers      []PaperIdentifier `json:"identifiers"`
+	Score            float64           `json:"score"`
+}
+
 type ChatHistoryMessage struct {
-	SearchQuery string  `json:"search_query"`
-	CreatedAt   string  `json:"created_at"`
-	Papers      []Paper `json:"papers"`
+	SearchQuery string      `json:"search_query"`
+	CreatedAt   string      `json:"created_at"`
+	Papers      []ChatPaper `json:"papers"`
 }
 
 type ChatHistoryResponse struct {

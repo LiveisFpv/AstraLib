@@ -73,7 +73,7 @@ message HistoryResp {
 message ChatMessage{
     string Search_query = 1;
     string Created_at = 2;
-    PapersResponse papers = 3;
+    ChatPapersResponse papers = 3;
 }
 
 message UserChatsReq {
@@ -131,8 +131,27 @@ message PaperResponse{
     repeated string Institutions = 11;
     repeated PaperIdentifier Identifiers = 12;
 }
+message ChatPaperResponse{
+    string ID = 1;
+    string Title = 2;
+    string Abstract = 3;
+    int64 Year = 4;
+    string Best_oa_location = 5;
+    string State = 6;
+    repeated string Referenced_works = 7;
+    repeated string Related_works = 8;
+    int64 Cited_by_count = 9;
+    repeated string Authors = 10;
+    repeated string Institutions = 11;
+    repeated PaperIdentifier Identifiers = 12;
+    double score = 13;
+}
 message PapersResponse{
     repeated PaperResponse Papers = 1;
+}
+
+message ChatPapersResponse{
+    repeated ChatPaperResponse Papers = 1;
 }
 
 message PaperIdentifier{

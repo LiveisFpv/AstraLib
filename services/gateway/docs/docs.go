@@ -1085,7 +1085,7 @@ const docTemplate = `{
                 "papers": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/presenters.Paper"
+                        "$ref": "#/definitions/presenters.ChatPaper"
                     }
                 },
                 "search_query": {
@@ -1101,6 +1101,65 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/presenters.ChatHistoryMessage"
                     }
+                }
+            }
+        },
+        "presenters.ChatPaper": {
+            "type": "object",
+            "properties": {
+                "abstract": {
+                    "type": "string"
+                },
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "best_oa_location": {
+                    "type": "string"
+                },
+                "cited_by_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "identifiers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/presenters.PaperIdentifier"
+                    }
+                },
+                "institutions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "referenced_works": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "related_works": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "score": {
+                    "type": "number"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer"
                 }
             }
         },
@@ -1159,62 +1218,6 @@ const docTemplate = `{
                 },
                 "comment": {
                     "type": "string"
-                }
-            }
-        },
-        "presenters.Paper": {
-            "type": "object",
-            "properties": {
-                "abstract": {
-                    "type": "string"
-                },
-                "authors": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "best_oa_location": {
-                    "type": "string"
-                },
-                "cited_by_count": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "identifiers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/presenters.PaperIdentifier"
-                    }
-                },
-                "institutions": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "referenced_works": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "related_works": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "state": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "year": {
-                    "type": "integer"
                 }
             }
         },

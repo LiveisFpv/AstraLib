@@ -18,6 +18,7 @@ export interface PaperCard {
   referencedWorks: string[]
   relatedWorks: string[]
   citedByCount?: number
+  score: number
 }
 
 export interface ChatMessage {

@@ -5,17 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
+from src.domain.models.search import SearchResult
 from src.al_models.e5.encoder import SemanticEncoder
 from src.domain.models.paper import PaperModel
 from src.services.search.faiss_index import FaissIndex
 from src.storage.paper_repository import PaperRepository
-
-
-@dataclass(slots=True)
-class SearchResult:
-    paper: PaperModel
-    score: float
-
 
 class FaissSearcher:
     def __init__(

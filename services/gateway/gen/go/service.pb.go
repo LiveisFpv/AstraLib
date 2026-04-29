@@ -449,7 +449,7 @@ type ChatMessage struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SearchQuery   string                 `protobuf:"bytes,1,opt,name=Search_query,json=SearchQuery,proto3" json:"Search_query,omitempty"`
 	CreatedAt     string                 `protobuf:"bytes,2,opt,name=Created_at,json=CreatedAt,proto3" json:"Created_at,omitempty"`
-	Papers        *PapersResponse        `protobuf:"bytes,3,opt,name=papers,proto3" json:"papers,omitempty"`
+	Papers        *ChatPapersResponse    `protobuf:"bytes,3,opt,name=papers,proto3" json:"papers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -498,7 +498,7 @@ func (x *ChatMessage) GetCreatedAt() string {
 	return ""
 }
 
-func (x *ChatMessage) GetPapers() *PapersResponse {
+func (x *ChatMessage) GetPapers() *ChatPapersResponse {
 	if x != nil {
 		return x.Papers
 	}
@@ -1061,6 +1061,146 @@ func (x *PaperResponse) GetIdentifiers() []*PaperIdentifier {
 	return nil
 }
 
+type ChatPaperResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ID              string                 `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+	Title           string                 `protobuf:"bytes,2,opt,name=Title,proto3" json:"Title,omitempty"`
+	Abstract        string                 `protobuf:"bytes,3,opt,name=Abstract,proto3" json:"Abstract,omitempty"`
+	Year            int64                  `protobuf:"varint,4,opt,name=Year,proto3" json:"Year,omitempty"`
+	BestOaLocation  string                 `protobuf:"bytes,5,opt,name=Best_oa_location,json=BestOaLocation,proto3" json:"Best_oa_location,omitempty"`
+	State           string                 `protobuf:"bytes,6,opt,name=State,proto3" json:"State,omitempty"`
+	ReferencedWorks []string               `protobuf:"bytes,7,rep,name=Referenced_works,json=ReferencedWorks,proto3" json:"Referenced_works,omitempty"`
+	RelatedWorks    []string               `protobuf:"bytes,8,rep,name=Related_works,json=RelatedWorks,proto3" json:"Related_works,omitempty"`
+	CitedByCount    int64                  `protobuf:"varint,9,opt,name=Cited_by_count,json=CitedByCount,proto3" json:"Cited_by_count,omitempty"`
+	Authors         []string               `protobuf:"bytes,10,rep,name=Authors,proto3" json:"Authors,omitempty"`
+	Institutions    []string               `protobuf:"bytes,11,rep,name=Institutions,proto3" json:"Institutions,omitempty"`
+	Identifiers     []*PaperIdentifier     `protobuf:"bytes,12,rep,name=Identifiers,proto3" json:"Identifiers,omitempty"`
+	Score           float64                `protobuf:"fixed64,13,opt,name=score,proto3" json:"score,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ChatPaperResponse) Reset() {
+	*x = ChatPaperResponse{}
+	mi := &file_service_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChatPaperResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChatPaperResponse) ProtoMessage() {}
+
+func (x *ChatPaperResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_service_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChatPaperResponse.ProtoReflect.Descriptor instead.
+func (*ChatPaperResponse) Descriptor() ([]byte, []int) {
+	return file_service_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ChatPaperResponse) GetID() string {
+	if x != nil {
+		return x.ID
+	}
+	return ""
+}
+
+func (x *ChatPaperResponse) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ChatPaperResponse) GetAbstract() string {
+	if x != nil {
+		return x.Abstract
+	}
+	return ""
+}
+
+func (x *ChatPaperResponse) GetYear() int64 {
+	if x != nil {
+		return x.Year
+	}
+	return 0
+}
+
+func (x *ChatPaperResponse) GetBestOaLocation() string {
+	if x != nil {
+		return x.BestOaLocation
+	}
+	return ""
+}
+
+func (x *ChatPaperResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *ChatPaperResponse) GetReferencedWorks() []string {
+	if x != nil {
+		return x.ReferencedWorks
+	}
+	return nil
+}
+
+func (x *ChatPaperResponse) GetRelatedWorks() []string {
+	if x != nil {
+		return x.RelatedWorks
+	}
+	return nil
+}
+
+func (x *ChatPaperResponse) GetCitedByCount() int64 {
+	if x != nil {
+		return x.CitedByCount
+	}
+	return 0
+}
+
+func (x *ChatPaperResponse) GetAuthors() []string {
+	if x != nil {
+		return x.Authors
+	}
+	return nil
+}
+
+func (x *ChatPaperResponse) GetInstitutions() []string {
+	if x != nil {
+		return x.Institutions
+	}
+	return nil
+}
+
+func (x *ChatPaperResponse) GetIdentifiers() []*PaperIdentifier {
+	if x != nil {
+		return x.Identifiers
+	}
+	return nil
+}
+
+func (x *ChatPaperResponse) GetScore() float64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
 type PapersResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Papers        []*PaperResponse       `protobuf:"bytes,1,rep,name=Papers,proto3" json:"Papers,omitempty"`
@@ -1070,7 +1210,7 @@ type PapersResponse struct {
 
 func (x *PapersResponse) Reset() {
 	*x = PapersResponse{}
-	mi := &file_service_proto_msgTypes[18]
+	mi := &file_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1082,7 +1222,7 @@ func (x *PapersResponse) String() string {
 func (*PapersResponse) ProtoMessage() {}
 
 func (x *PapersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[18]
+	mi := &file_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1095,10 +1235,54 @@ func (x *PapersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PapersResponse.ProtoReflect.Descriptor instead.
 func (*PapersResponse) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{18}
+	return file_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PapersResponse) GetPapers() []*PaperResponse {
+	if x != nil {
+		return x.Papers
+	}
+	return nil
+}
+
+type ChatPapersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Papers        []*ChatPaperResponse   `protobuf:"bytes,1,rep,name=Papers,proto3" json:"Papers,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChatPapersResponse) Reset() {
+	*x = ChatPapersResponse{}
+	mi := &file_service_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChatPapersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChatPapersResponse) ProtoMessage() {}
+
+func (x *ChatPapersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_service_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChatPapersResponse.ProtoReflect.Descriptor instead.
+func (*ChatPapersResponse) Descriptor() ([]byte, []int) {
+	return file_service_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ChatPapersResponse) GetPapers() []*ChatPaperResponse {
 	if x != nil {
 		return x.Papers
 	}
@@ -1115,7 +1299,7 @@ type PaperIdentifier struct {
 
 func (x *PaperIdentifier) Reset() {
 	*x = PaperIdentifier{}
-	mi := &file_service_proto_msgTypes[19]
+	mi := &file_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1127,7 +1311,7 @@ func (x *PaperIdentifier) String() string {
 func (*PaperIdentifier) ProtoMessage() {}
 
 func (x *PaperIdentifier) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[19]
+	mi := &file_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1140,7 +1324,7 @@ func (x *PaperIdentifier) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PaperIdentifier.ProtoReflect.Descriptor instead.
 func (*PaperIdentifier) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{19}
+	return file_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *PaperIdentifier) GetType() string {
@@ -1173,7 +1357,7 @@ type AddRequest struct {
 
 func (x *AddRequest) Reset() {
 	*x = AddRequest{}
-	mi := &file_service_proto_msgTypes[20]
+	mi := &file_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1185,7 +1369,7 @@ func (x *AddRequest) String() string {
 func (*AddRequest) ProtoMessage() {}
 
 func (x *AddRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[20]
+	mi := &file_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1198,7 +1382,7 @@ func (x *AddRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddRequest.ProtoReflect.Descriptor instead.
 func (*AddRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{20}
+	return file_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *AddRequest) GetID() string {
@@ -1266,7 +1450,7 @@ type ReferencedWorks struct {
 
 func (x *ReferencedWorks) Reset() {
 	*x = ReferencedWorks{}
-	mi := &file_service_proto_msgTypes[21]
+	mi := &file_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1278,7 +1462,7 @@ func (x *ReferencedWorks) String() string {
 func (*ReferencedWorks) ProtoMessage() {}
 
 func (x *ReferencedWorks) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[21]
+	mi := &file_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1291,7 +1475,7 @@ func (x *ReferencedWorks) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReferencedWorks.ProtoReflect.Descriptor instead.
 func (*ReferencedWorks) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{21}
+	return file_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ReferencedWorks) GetID() string {
@@ -1310,7 +1494,7 @@ type RelatedWorks struct {
 
 func (x *RelatedWorks) Reset() {
 	*x = RelatedWorks{}
-	mi := &file_service_proto_msgTypes[22]
+	mi := &file_service_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1322,7 +1506,7 @@ func (x *RelatedWorks) String() string {
 func (*RelatedWorks) ProtoMessage() {}
 
 func (x *RelatedWorks) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[22]
+	mi := &file_service_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1335,7 +1519,7 @@ func (x *RelatedWorks) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelatedWorks.ProtoReflect.Descriptor instead.
 func (*RelatedWorks) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{22}
+	return file_service_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RelatedWorks) GetID() string {
@@ -1354,7 +1538,7 @@ type ErrorResponse struct {
 
 func (x *ErrorResponse) Reset() {
 	*x = ErrorResponse{}
-	mi := &file_service_proto_msgTypes[23]
+	mi := &file_service_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1366,7 +1550,7 @@ func (x *ErrorResponse) String() string {
 func (*ErrorResponse) ProtoMessage() {}
 
 func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[23]
+	mi := &file_service_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1379,7 +1563,7 @@ func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorResponse.ProtoReflect.Descriptor instead.
 func (*ErrorResponse) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{23}
+	return file_service_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ErrorResponse) GetError() string {
@@ -1414,7 +1598,7 @@ type SubmissionRecord struct {
 
 func (x *SubmissionRecord) Reset() {
 	*x = SubmissionRecord{}
-	mi := &file_service_proto_msgTypes[24]
+	mi := &file_service_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1426,7 +1610,7 @@ func (x *SubmissionRecord) String() string {
 func (*SubmissionRecord) ProtoMessage() {}
 
 func (x *SubmissionRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[24]
+	mi := &file_service_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1439,7 +1623,7 @@ func (x *SubmissionRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmissionRecord.ProtoReflect.Descriptor instead.
 func (*SubmissionRecord) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{24}
+	return file_service_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SubmissionRecord) GetSubmissionId() int64 {
@@ -1570,7 +1754,7 @@ type SubmissionResponse struct {
 
 func (x *SubmissionResponse) Reset() {
 	*x = SubmissionResponse{}
-	mi := &file_service_proto_msgTypes[25]
+	mi := &file_service_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1582,7 +1766,7 @@ func (x *SubmissionResponse) String() string {
 func (*SubmissionResponse) ProtoMessage() {}
 
 func (x *SubmissionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[25]
+	mi := &file_service_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1595,7 +1779,7 @@ func (x *SubmissionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmissionResponse.ProtoReflect.Descriptor instead.
 func (*SubmissionResponse) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{25}
+	return file_service_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *SubmissionResponse) GetSubmission() *SubmissionRecord {
@@ -1617,7 +1801,7 @@ type SubmissionListResponse struct {
 
 func (x *SubmissionListResponse) Reset() {
 	*x = SubmissionListResponse{}
-	mi := &file_service_proto_msgTypes[26]
+	mi := &file_service_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1629,7 +1813,7 @@ func (x *SubmissionListResponse) String() string {
 func (*SubmissionListResponse) ProtoMessage() {}
 
 func (x *SubmissionListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[26]
+	mi := &file_service_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1642,7 +1826,7 @@ func (x *SubmissionListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmissionListResponse.ProtoReflect.Descriptor instead.
 func (*SubmissionListResponse) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{26}
+	return file_service_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *SubmissionListResponse) GetItems() []*SubmissionRecord {
@@ -1688,7 +1872,7 @@ type CreateMySubmissionRequest struct {
 
 func (x *CreateMySubmissionRequest) Reset() {
 	*x = CreateMySubmissionRequest{}
-	mi := &file_service_proto_msgTypes[27]
+	mi := &file_service_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1700,7 +1884,7 @@ func (x *CreateMySubmissionRequest) String() string {
 func (*CreateMySubmissionRequest) ProtoMessage() {}
 
 func (x *CreateMySubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[27]
+	mi := &file_service_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1713,7 +1897,7 @@ func (x *CreateMySubmissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateMySubmissionRequest.ProtoReflect.Descriptor instead.
 func (*CreateMySubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{27}
+	return file_service_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *CreateMySubmissionRequest) GetSourceIdentifier() string {
@@ -1781,7 +1965,7 @@ type UpdateMySubmissionRequest struct {
 
 func (x *UpdateMySubmissionRequest) Reset() {
 	*x = UpdateMySubmissionRequest{}
-	mi := &file_service_proto_msgTypes[28]
+	mi := &file_service_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1793,7 +1977,7 @@ func (x *UpdateMySubmissionRequest) String() string {
 func (*UpdateMySubmissionRequest) ProtoMessage() {}
 
 func (x *UpdateMySubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[28]
+	mi := &file_service_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1806,7 +1990,7 @@ func (x *UpdateMySubmissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMySubmissionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMySubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{28}
+	return file_service_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *UpdateMySubmissionRequest) GetSubmissionId() int64 {
@@ -1874,7 +2058,7 @@ type DeleteMySubmissionRequest struct {
 
 func (x *DeleteMySubmissionRequest) Reset() {
 	*x = DeleteMySubmissionRequest{}
-	mi := &file_service_proto_msgTypes[29]
+	mi := &file_service_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1886,7 +2070,7 @@ func (x *DeleteMySubmissionRequest) String() string {
 func (*DeleteMySubmissionRequest) ProtoMessage() {}
 
 func (x *DeleteMySubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[29]
+	mi := &file_service_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1899,7 +2083,7 @@ func (x *DeleteMySubmissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteMySubmissionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteMySubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{29}
+	return file_service_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *DeleteMySubmissionRequest) GetSubmissionId() int64 {
@@ -1918,7 +2102,7 @@ type GetMySubmissionRequest struct {
 
 func (x *GetMySubmissionRequest) Reset() {
 	*x = GetMySubmissionRequest{}
-	mi := &file_service_proto_msgTypes[30]
+	mi := &file_service_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1930,7 +2114,7 @@ func (x *GetMySubmissionRequest) String() string {
 func (*GetMySubmissionRequest) ProtoMessage() {}
 
 func (x *GetMySubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[30]
+	mi := &file_service_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1943,7 +2127,7 @@ func (x *GetMySubmissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMySubmissionRequest.ProtoReflect.Descriptor instead.
 func (*GetMySubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{30}
+	return file_service_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *GetMySubmissionRequest) GetSubmissionId() int64 {
@@ -1964,7 +2148,7 @@ type ListMySubmissionsRequest struct {
 
 func (x *ListMySubmissionsRequest) Reset() {
 	*x = ListMySubmissionsRequest{}
-	mi := &file_service_proto_msgTypes[31]
+	mi := &file_service_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1976,7 +2160,7 @@ func (x *ListMySubmissionsRequest) String() string {
 func (*ListMySubmissionsRequest) ProtoMessage() {}
 
 func (x *ListMySubmissionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[31]
+	mi := &file_service_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1989,7 +2173,7 @@ func (x *ListMySubmissionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMySubmissionsRequest.ProtoReflect.Descriptor instead.
 func (*ListMySubmissionsRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{31}
+	return file_service_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListMySubmissionsRequest) GetStatuses() []string {
@@ -2022,7 +2206,7 @@ type SubmitMySubmissionRequest struct {
 
 func (x *SubmitMySubmissionRequest) Reset() {
 	*x = SubmitMySubmissionRequest{}
-	mi := &file_service_proto_msgTypes[32]
+	mi := &file_service_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2034,7 +2218,7 @@ func (x *SubmitMySubmissionRequest) String() string {
 func (*SubmitMySubmissionRequest) ProtoMessage() {}
 
 func (x *SubmitMySubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[32]
+	mi := &file_service_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2047,7 +2231,7 @@ func (x *SubmitMySubmissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitMySubmissionRequest.ProtoReflect.Descriptor instead.
 func (*SubmitMySubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{32}
+	return file_service_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *SubmitMySubmissionRequest) GetSubmissionId() int64 {
@@ -2068,7 +2252,7 @@ type ListModerationQueueRequest struct {
 
 func (x *ListModerationQueueRequest) Reset() {
 	*x = ListModerationQueueRequest{}
-	mi := &file_service_proto_msgTypes[33]
+	mi := &file_service_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2080,7 +2264,7 @@ func (x *ListModerationQueueRequest) String() string {
 func (*ListModerationQueueRequest) ProtoMessage() {}
 
 func (x *ListModerationQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[33]
+	mi := &file_service_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2093,7 +2277,7 @@ func (x *ListModerationQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModerationQueueRequest.ProtoReflect.Descriptor instead.
 func (*ListModerationQueueRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{33}
+	return file_service_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ListModerationQueueRequest) GetStatuses() []string {
@@ -2126,7 +2310,7 @@ type GetModerationSubmissionRequest struct {
 
 func (x *GetModerationSubmissionRequest) Reset() {
 	*x = GetModerationSubmissionRequest{}
-	mi := &file_service_proto_msgTypes[34]
+	mi := &file_service_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2138,7 +2322,7 @@ func (x *GetModerationSubmissionRequest) String() string {
 func (*GetModerationSubmissionRequest) ProtoMessage() {}
 
 func (x *GetModerationSubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[34]
+	mi := &file_service_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2151,7 +2335,7 @@ func (x *GetModerationSubmissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetModerationSubmissionRequest.ProtoReflect.Descriptor instead.
 func (*GetModerationSubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{34}
+	return file_service_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *GetModerationSubmissionRequest) GetSubmissionId() int64 {
@@ -2177,7 +2361,7 @@ type UpdateModerationSubmissionRequest struct {
 
 func (x *UpdateModerationSubmissionRequest) Reset() {
 	*x = UpdateModerationSubmissionRequest{}
-	mi := &file_service_proto_msgTypes[35]
+	mi := &file_service_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2189,7 +2373,7 @@ func (x *UpdateModerationSubmissionRequest) String() string {
 func (*UpdateModerationSubmissionRequest) ProtoMessage() {}
 
 func (x *UpdateModerationSubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[35]
+	mi := &file_service_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2202,7 +2386,7 @@ func (x *UpdateModerationSubmissionRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use UpdateModerationSubmissionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateModerationSubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{35}
+	return file_service_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *UpdateModerationSubmissionRequest) GetSubmissionId() int64 {
@@ -2272,7 +2456,7 @@ type ModerateSubmissionRequest struct {
 
 func (x *ModerateSubmissionRequest) Reset() {
 	*x = ModerateSubmissionRequest{}
-	mi := &file_service_proto_msgTypes[36]
+	mi := &file_service_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2284,7 +2468,7 @@ func (x *ModerateSubmissionRequest) String() string {
 func (*ModerateSubmissionRequest) ProtoMessage() {}
 
 func (x *ModerateSubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_service_proto_msgTypes[36]
+	mi := &file_service_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2297,7 +2481,7 @@ func (x *ModerateSubmissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModerateSubmissionRequest.ProtoReflect.Descriptor instead.
 func (*ModerateSubmissionRequest) Descriptor() ([]byte, []int) {
-	return file_service_proto_rawDescGZIP(), []int{36}
+	return file_service_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ModerateSubmissionRequest) GetSubmissionId() int64 {
@@ -2353,12 +2537,12 @@ const file_service_proto_rawDesc = "" +
 	"\aChat_id\x18\x01 \x01(\x03R\x06ChatId\x12\x17\n" +
 	"\aUser_id\x18\x02 \x01(\x03R\x06UserId\"H\n" +
 	"\vHistoryResp\x129\n" +
-	"\fChatMessages\x18\x01 \x03(\v2\x15.semantic.ChatMessageR\fChatMessages\"\x81\x01\n" +
+	"\fChatMessages\x18\x01 \x03(\v2\x15.semantic.ChatMessageR\fChatMessages\"\x85\x01\n" +
 	"\vChatMessage\x12!\n" +
 	"\fSearch_query\x18\x01 \x01(\tR\vSearchQuery\x12\x1d\n" +
 	"\n" +
-	"Created_at\x18\x02 \x01(\tR\tCreatedAt\x120\n" +
-	"\x06papers\x18\x03 \x01(\v2\x18.semantic.PapersResponseR\x06papers\"'\n" +
+	"Created_at\x18\x02 \x01(\tR\tCreatedAt\x124\n" +
+	"\x06papers\x18\x03 \x01(\v2\x1c.semantic.ChatPapersResponseR\x06papers\"'\n" +
 	"\fUserChatsReq\x12\x17\n" +
 	"\aUser_id\x18\x01 \x01(\x03R\x06UserId\"A\n" +
 	"\rDeleteChatReq\x12\x17\n" +
@@ -2399,9 +2583,26 @@ const file_service_proto_rawDesc = "" +
 	"\aAuthors\x18\n" +
 	" \x03(\tR\aAuthors\x12\"\n" +
 	"\fInstitutions\x18\v \x03(\tR\fInstitutions\x12;\n" +
-	"\vIdentifiers\x18\f \x03(\v2\x19.semantic.PaperIdentifierR\vIdentifiers\"A\n" +
+	"\vIdentifiers\x18\f \x03(\v2\x19.semantic.PaperIdentifierR\vIdentifiers\"\xb0\x03\n" +
+	"\x11ChatPaperResponse\x12\x0e\n" +
+	"\x02ID\x18\x01 \x01(\tR\x02ID\x12\x14\n" +
+	"\x05Title\x18\x02 \x01(\tR\x05Title\x12\x1a\n" +
+	"\bAbstract\x18\x03 \x01(\tR\bAbstract\x12\x12\n" +
+	"\x04Year\x18\x04 \x01(\x03R\x04Year\x12(\n" +
+	"\x10Best_oa_location\x18\x05 \x01(\tR\x0eBestOaLocation\x12\x14\n" +
+	"\x05State\x18\x06 \x01(\tR\x05State\x12)\n" +
+	"\x10Referenced_works\x18\a \x03(\tR\x0fReferencedWorks\x12#\n" +
+	"\rRelated_works\x18\b \x03(\tR\fRelatedWorks\x12$\n" +
+	"\x0eCited_by_count\x18\t \x01(\x03R\fCitedByCount\x12\x18\n" +
+	"\aAuthors\x18\n" +
+	" \x03(\tR\aAuthors\x12\"\n" +
+	"\fInstitutions\x18\v \x03(\tR\fInstitutions\x12;\n" +
+	"\vIdentifiers\x18\f \x03(\v2\x19.semantic.PaperIdentifierR\vIdentifiers\x12\x14\n" +
+	"\x05score\x18\r \x01(\x01R\x05score\"A\n" +
 	"\x0ePapersResponse\x12/\n" +
-	"\x06Papers\x18\x01 \x03(\v2\x17.semantic.PaperResponseR\x06Papers\";\n" +
+	"\x06Papers\x18\x01 \x03(\v2\x17.semantic.PaperResponseR\x06Papers\"I\n" +
+	"\x12ChatPapersResponse\x123\n" +
+	"\x06Papers\x18\x01 \x03(\v2\x1b.semantic.ChatPaperResponseR\x06Papers\";\n" +
 	"\x0fPaperIdentifier\x12\x12\n" +
 	"\x04Type\x18\x01 \x01(\tR\x04Type\x12\x14\n" +
 	"\x05Value\x18\x02 \x01(\tR\x05Value\"\xa7\x02\n" +
@@ -2536,7 +2737,7 @@ func file_service_proto_rawDescGZIP() []byte {
 	return file_service_proto_rawDescData
 }
 
-var file_service_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_service_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_service_proto_goTypes = []any{
 	(*InstitutionReq)(nil),                    // 0: semantic.InstitutionReq
 	(*InstitutionsResp)(nil),                  // 1: semantic.InstitutionsResp
@@ -2556,88 +2757,92 @@ var file_service_proto_goTypes = []any{
 	(*SearchRequest)(nil),                     // 15: semantic.SearchRequest
 	(*AuthorPaperReq)(nil),                    // 16: semantic.AuthorPaperReq
 	(*PaperResponse)(nil),                     // 17: semantic.PaperResponse
-	(*PapersResponse)(nil),                    // 18: semantic.PapersResponse
-	(*PaperIdentifier)(nil),                   // 19: semantic.PaperIdentifier
-	(*AddRequest)(nil),                        // 20: semantic.AddRequest
-	(*ReferencedWorks)(nil),                   // 21: semantic.Referenced_works
-	(*RelatedWorks)(nil),                      // 22: semantic.Related_works
-	(*ErrorResponse)(nil),                     // 23: semantic.ErrorResponse
-	(*SubmissionRecord)(nil),                  // 24: semantic.SubmissionRecord
-	(*SubmissionResponse)(nil),                // 25: semantic.SubmissionResponse
-	(*SubmissionListResponse)(nil),            // 26: semantic.SubmissionListResponse
-	(*CreateMySubmissionRequest)(nil),         // 27: semantic.CreateMySubmissionRequest
-	(*UpdateMySubmissionRequest)(nil),         // 28: semantic.UpdateMySubmissionRequest
-	(*DeleteMySubmissionRequest)(nil),         // 29: semantic.DeleteMySubmissionRequest
-	(*GetMySubmissionRequest)(nil),            // 30: semantic.GetMySubmissionRequest
-	(*ListMySubmissionsRequest)(nil),          // 31: semantic.ListMySubmissionsRequest
-	(*SubmitMySubmissionRequest)(nil),         // 32: semantic.SubmitMySubmissionRequest
-	(*ListModerationQueueRequest)(nil),        // 33: semantic.ListModerationQueueRequest
-	(*GetModerationSubmissionRequest)(nil),    // 34: semantic.GetModerationSubmissionRequest
-	(*UpdateModerationSubmissionRequest)(nil), // 35: semantic.UpdateModerationSubmissionRequest
-	(*ModerateSubmissionRequest)(nil),         // 36: semantic.ModerateSubmissionRequest
+	(*ChatPaperResponse)(nil),                 // 18: semantic.ChatPaperResponse
+	(*PapersResponse)(nil),                    // 19: semantic.PapersResponse
+	(*ChatPapersResponse)(nil),                // 20: semantic.ChatPapersResponse
+	(*PaperIdentifier)(nil),                   // 21: semantic.PaperIdentifier
+	(*AddRequest)(nil),                        // 22: semantic.AddRequest
+	(*ReferencedWorks)(nil),                   // 23: semantic.Referenced_works
+	(*RelatedWorks)(nil),                      // 24: semantic.Related_works
+	(*ErrorResponse)(nil),                     // 25: semantic.ErrorResponse
+	(*SubmissionRecord)(nil),                  // 26: semantic.SubmissionRecord
+	(*SubmissionResponse)(nil),                // 27: semantic.SubmissionResponse
+	(*SubmissionListResponse)(nil),            // 28: semantic.SubmissionListResponse
+	(*CreateMySubmissionRequest)(nil),         // 29: semantic.CreateMySubmissionRequest
+	(*UpdateMySubmissionRequest)(nil),         // 30: semantic.UpdateMySubmissionRequest
+	(*DeleteMySubmissionRequest)(nil),         // 31: semantic.DeleteMySubmissionRequest
+	(*GetMySubmissionRequest)(nil),            // 32: semantic.GetMySubmissionRequest
+	(*ListMySubmissionsRequest)(nil),          // 33: semantic.ListMySubmissionsRequest
+	(*SubmitMySubmissionRequest)(nil),         // 34: semantic.SubmitMySubmissionRequest
+	(*ListModerationQueueRequest)(nil),        // 35: semantic.ListModerationQueueRequest
+	(*GetModerationSubmissionRequest)(nil),    // 36: semantic.GetModerationSubmissionRequest
+	(*UpdateModerationSubmissionRequest)(nil), // 37: semantic.UpdateModerationSubmissionRequest
+	(*ModerateSubmissionRequest)(nil),         // 38: semantic.ModerateSubmissionRequest
 }
 var file_service_proto_depIdxs = []int32{
 	2,  // 0: semantic.InstitutionsResp.Institutions:type_name -> semantic.Institution
 	5,  // 1: semantic.AuthorsResp.Authors:type_name -> semantic.Author
 	8,  // 2: semantic.HistoryResp.ChatMessages:type_name -> semantic.ChatMessage
-	18, // 3: semantic.ChatMessage.papers:type_name -> semantic.PapersResponse
+	20, // 3: semantic.ChatMessage.papers:type_name -> semantic.ChatPapersResponse
 	11, // 4: semantic.ChatsResp.Chats:type_name -> semantic.Chat
 	11, // 5: semantic.ChatResp.Chat:type_name -> semantic.Chat
-	19, // 6: semantic.PaperResponse.Identifiers:type_name -> semantic.PaperIdentifier
-	17, // 7: semantic.PapersResponse.Papers:type_name -> semantic.PaperResponse
-	21, // 8: semantic.AddRequest.Referenced_works:type_name -> semantic.Referenced_works
-	22, // 9: semantic.AddRequest.Related_works:type_name -> semantic.Related_works
-	24, // 10: semantic.SubmissionResponse.Submission:type_name -> semantic.SubmissionRecord
-	24, // 11: semantic.SubmissionListResponse.Items:type_name -> semantic.SubmissionRecord
-	0,  // 12: semantic.SemanticService.GetInstitutions:input_type -> semantic.InstitutionReq
-	2,  // 13: semantic.SemanticService.AddInstitution:input_type -> semantic.Institution
-	3,  // 14: semantic.SemanticService.GetAuthors:input_type -> semantic.AuthorReq
-	5,  // 15: semantic.SemanticService.AddAuthor:input_type -> semantic.Author
-	6,  // 16: semantic.SemanticService.GetChatHistory:input_type -> semantic.HistoryReq
-	11, // 17: semantic.SemanticService.CreateNewChat:input_type -> semantic.Chat
-	12, // 18: semantic.SemanticService.UpdateChat:input_type -> semantic.UpdateChatReq
-	10, // 19: semantic.SemanticService.DeleteChat:input_type -> semantic.DeleteChatReq
-	9,  // 20: semantic.SemanticService.GetUserChats:input_type -> semantic.UserChatsReq
-	16, // 21: semantic.SemanticService.GetAuthorPapers:input_type -> semantic.AuthorPaperReq
-	15, // 22: semantic.SemanticService.SearchPaper:input_type -> semantic.SearchRequest
-	20, // 23: semantic.SemanticService.AddPaper:input_type -> semantic.AddRequest
-	27, // 24: semantic.SemanticService.CreateMySubmission:input_type -> semantic.CreateMySubmissionRequest
-	28, // 25: semantic.SemanticService.UpdateMySubmission:input_type -> semantic.UpdateMySubmissionRequest
-	29, // 26: semantic.SemanticService.DeleteMySubmission:input_type -> semantic.DeleteMySubmissionRequest
-	30, // 27: semantic.SemanticService.GetMySubmission:input_type -> semantic.GetMySubmissionRequest
-	31, // 28: semantic.SemanticService.ListMySubmissions:input_type -> semantic.ListMySubmissionsRequest
-	32, // 29: semantic.SemanticService.SubmitMySubmission:input_type -> semantic.SubmitMySubmissionRequest
-	33, // 30: semantic.SemanticService.ListModerationQueue:input_type -> semantic.ListModerationQueueRequest
-	34, // 31: semantic.SemanticService.GetModerationSubmission:input_type -> semantic.GetModerationSubmissionRequest
-	35, // 32: semantic.SemanticService.UpdateModerationSubmission:input_type -> semantic.UpdateModerationSubmissionRequest
-	36, // 33: semantic.SemanticService.ModerateSubmission:input_type -> semantic.ModerateSubmissionRequest
-	1,  // 34: semantic.SemanticService.GetInstitutions:output_type -> semantic.InstitutionsResp
-	23, // 35: semantic.SemanticService.AddInstitution:output_type -> semantic.ErrorResponse
-	4,  // 36: semantic.SemanticService.GetAuthors:output_type -> semantic.AuthorsResp
-	23, // 37: semantic.SemanticService.AddAuthor:output_type -> semantic.ErrorResponse
-	7,  // 38: semantic.SemanticService.GetChatHistory:output_type -> semantic.HistoryResp
-	14, // 39: semantic.SemanticService.CreateNewChat:output_type -> semantic.ChatResp
-	14, // 40: semantic.SemanticService.UpdateChat:output_type -> semantic.ChatResp
-	23, // 41: semantic.SemanticService.DeleteChat:output_type -> semantic.ErrorResponse
-	13, // 42: semantic.SemanticService.GetUserChats:output_type -> semantic.ChatsResp
-	18, // 43: semantic.SemanticService.GetAuthorPapers:output_type -> semantic.PapersResponse
-	8,  // 44: semantic.SemanticService.SearchPaper:output_type -> semantic.ChatMessage
-	17, // 45: semantic.SemanticService.AddPaper:output_type -> semantic.PaperResponse
-	25, // 46: semantic.SemanticService.CreateMySubmission:output_type -> semantic.SubmissionResponse
-	25, // 47: semantic.SemanticService.UpdateMySubmission:output_type -> semantic.SubmissionResponse
-	23, // 48: semantic.SemanticService.DeleteMySubmission:output_type -> semantic.ErrorResponse
-	25, // 49: semantic.SemanticService.GetMySubmission:output_type -> semantic.SubmissionResponse
-	26, // 50: semantic.SemanticService.ListMySubmissions:output_type -> semantic.SubmissionListResponse
-	25, // 51: semantic.SemanticService.SubmitMySubmission:output_type -> semantic.SubmissionResponse
-	26, // 52: semantic.SemanticService.ListModerationQueue:output_type -> semantic.SubmissionListResponse
-	25, // 53: semantic.SemanticService.GetModerationSubmission:output_type -> semantic.SubmissionResponse
-	25, // 54: semantic.SemanticService.UpdateModerationSubmission:output_type -> semantic.SubmissionResponse
-	25, // 55: semantic.SemanticService.ModerateSubmission:output_type -> semantic.SubmissionResponse
-	34, // [34:56] is the sub-list for method output_type
-	12, // [12:34] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	21, // 6: semantic.PaperResponse.Identifiers:type_name -> semantic.PaperIdentifier
+	21, // 7: semantic.ChatPaperResponse.Identifiers:type_name -> semantic.PaperIdentifier
+	17, // 8: semantic.PapersResponse.Papers:type_name -> semantic.PaperResponse
+	18, // 9: semantic.ChatPapersResponse.Papers:type_name -> semantic.ChatPaperResponse
+	23, // 10: semantic.AddRequest.Referenced_works:type_name -> semantic.Referenced_works
+	24, // 11: semantic.AddRequest.Related_works:type_name -> semantic.Related_works
+	26, // 12: semantic.SubmissionResponse.Submission:type_name -> semantic.SubmissionRecord
+	26, // 13: semantic.SubmissionListResponse.Items:type_name -> semantic.SubmissionRecord
+	0,  // 14: semantic.SemanticService.GetInstitutions:input_type -> semantic.InstitutionReq
+	2,  // 15: semantic.SemanticService.AddInstitution:input_type -> semantic.Institution
+	3,  // 16: semantic.SemanticService.GetAuthors:input_type -> semantic.AuthorReq
+	5,  // 17: semantic.SemanticService.AddAuthor:input_type -> semantic.Author
+	6,  // 18: semantic.SemanticService.GetChatHistory:input_type -> semantic.HistoryReq
+	11, // 19: semantic.SemanticService.CreateNewChat:input_type -> semantic.Chat
+	12, // 20: semantic.SemanticService.UpdateChat:input_type -> semantic.UpdateChatReq
+	10, // 21: semantic.SemanticService.DeleteChat:input_type -> semantic.DeleteChatReq
+	9,  // 22: semantic.SemanticService.GetUserChats:input_type -> semantic.UserChatsReq
+	16, // 23: semantic.SemanticService.GetAuthorPapers:input_type -> semantic.AuthorPaperReq
+	15, // 24: semantic.SemanticService.SearchPaper:input_type -> semantic.SearchRequest
+	22, // 25: semantic.SemanticService.AddPaper:input_type -> semantic.AddRequest
+	29, // 26: semantic.SemanticService.CreateMySubmission:input_type -> semantic.CreateMySubmissionRequest
+	30, // 27: semantic.SemanticService.UpdateMySubmission:input_type -> semantic.UpdateMySubmissionRequest
+	31, // 28: semantic.SemanticService.DeleteMySubmission:input_type -> semantic.DeleteMySubmissionRequest
+	32, // 29: semantic.SemanticService.GetMySubmission:input_type -> semantic.GetMySubmissionRequest
+	33, // 30: semantic.SemanticService.ListMySubmissions:input_type -> semantic.ListMySubmissionsRequest
+	34, // 31: semantic.SemanticService.SubmitMySubmission:input_type -> semantic.SubmitMySubmissionRequest
+	35, // 32: semantic.SemanticService.ListModerationQueue:input_type -> semantic.ListModerationQueueRequest
+	36, // 33: semantic.SemanticService.GetModerationSubmission:input_type -> semantic.GetModerationSubmissionRequest
+	37, // 34: semantic.SemanticService.UpdateModerationSubmission:input_type -> semantic.UpdateModerationSubmissionRequest
+	38, // 35: semantic.SemanticService.ModerateSubmission:input_type -> semantic.ModerateSubmissionRequest
+	1,  // 36: semantic.SemanticService.GetInstitutions:output_type -> semantic.InstitutionsResp
+	25, // 37: semantic.SemanticService.AddInstitution:output_type -> semantic.ErrorResponse
+	4,  // 38: semantic.SemanticService.GetAuthors:output_type -> semantic.AuthorsResp
+	25, // 39: semantic.SemanticService.AddAuthor:output_type -> semantic.ErrorResponse
+	7,  // 40: semantic.SemanticService.GetChatHistory:output_type -> semantic.HistoryResp
+	14, // 41: semantic.SemanticService.CreateNewChat:output_type -> semantic.ChatResp
+	14, // 42: semantic.SemanticService.UpdateChat:output_type -> semantic.ChatResp
+	25, // 43: semantic.SemanticService.DeleteChat:output_type -> semantic.ErrorResponse
+	13, // 44: semantic.SemanticService.GetUserChats:output_type -> semantic.ChatsResp
+	19, // 45: semantic.SemanticService.GetAuthorPapers:output_type -> semantic.PapersResponse
+	8,  // 46: semantic.SemanticService.SearchPaper:output_type -> semantic.ChatMessage
+	17, // 47: semantic.SemanticService.AddPaper:output_type -> semantic.PaperResponse
+	27, // 48: semantic.SemanticService.CreateMySubmission:output_type -> semantic.SubmissionResponse
+	27, // 49: semantic.SemanticService.UpdateMySubmission:output_type -> semantic.SubmissionResponse
+	25, // 50: semantic.SemanticService.DeleteMySubmission:output_type -> semantic.ErrorResponse
+	27, // 51: semantic.SemanticService.GetMySubmission:output_type -> semantic.SubmissionResponse
+	28, // 52: semantic.SemanticService.ListMySubmissions:output_type -> semantic.SubmissionListResponse
+	27, // 53: semantic.SemanticService.SubmitMySubmission:output_type -> semantic.SubmissionResponse
+	28, // 54: semantic.SemanticService.ListModerationQueue:output_type -> semantic.SubmissionListResponse
+	27, // 55: semantic.SemanticService.GetModerationSubmission:output_type -> semantic.SubmissionResponse
+	27, // 56: semantic.SemanticService.UpdateModerationSubmission:output_type -> semantic.SubmissionResponse
+	27, // 57: semantic.SemanticService.ModerateSubmission:output_type -> semantic.SubmissionResponse
+	36, // [36:58] is the sub-list for method output_type
+	14, // [14:36] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_service_proto_init() }
@@ -2651,7 +2856,7 @@ func file_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_service_proto_rawDesc), len(file_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   37,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

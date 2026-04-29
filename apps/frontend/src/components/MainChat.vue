@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useChatStore, type PaperCard } from '@/stores/chatStore'
 import { useToastStore } from '@/stores/toastStore'
 import { AlibApi } from '@/api/useAlibApi'
-import type { PaperResponse } from '@/api/types'
+import type { ChatPaperResponse} from '@/api/types'
 import { useI18n } from '@/i18n'
 import { copyToClipboard } from '@/utils/copyToClipboard'
 import CustomScrollbar from '@/components/CustomScrollbar.vue'
@@ -215,7 +215,7 @@ function buildChatTitle(raw: string) {
   return `${normalized.slice(0, CHAT_TITLE_MAX).trimEnd()}...`
 }
 
-function toPaperCard(paper: PaperResponse, index: number): PaperCard | null {
+function toPaperCard(paper: ChatPaperResponse, index: number): PaperCard | null {
   const title = paper.title?.trim()
   const abstract = paper.abstract?.trim()
   if (!title && !abstract) return null
@@ -236,6 +236,7 @@ function toPaperCard(paper: PaperResponse, index: number): PaperCard | null {
     referencedWorks: normalizeStringArray(paper.referenced_works),
     relatedWorks: normalizeStringArray(paper.related_works),
     citedByCount: paper.cited_by_count,
+    score: paper.score
   }
 }
 
@@ -481,6 +482,7 @@ onBeforeUnmount(() => {
                 >
                   <header class="paper-card__header">
                     <span v-if="paper.year" class="paper-card__year">{{ paper.year }}</span>
+                    <span v-if="paper.score" class="paper-card__score">{{t('paper.score').replace('{score}', String(paper.score.toFixed(3)))}}</span>
                     <h3 class="paper-card__title">{{ paper.title }}</h3>
                   </header>
                   <p class="paper-card__abstract">{{ paper.abstract }}</p>
@@ -751,6 +753,14 @@ onBeforeUnmount(() => {
   gap: 4px;
 }
 .paper-card__year {
+  width: fit-content;
+  font-size: 0.75rem;
+  color: var(--color-accent-muted);
+  text-transform: uppercase;
+  letter-spacing: 0;
+  font-weight: 700;
+}
+.paper-card__score {
   width: fit-content;
   font-size: 0.75rem;
   color: var(--color-accent-muted);

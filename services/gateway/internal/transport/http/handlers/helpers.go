@@ -164,10 +164,10 @@ func mapChat(chat *domain.Chat) presenters.ChatResponse {
 	}
 }
 
-func mapPapers(papers []*domain.Paper) []presenters.Paper {
-	out := make([]presenters.Paper, 0, len(papers))
+func mapPapers(papers []*domain.ChatPaper) []presenters.ChatPaper {
+	out := make([]presenters.ChatPaper, 0, len(papers))
 	for _, p := range papers {
-		out = append(out, presenters.Paper{
+		out = append(out, presenters.ChatPaper{
 			Id:               p.Id,
 			Title:            p.Title,
 			Abstract:         p.Abstract,
@@ -180,6 +180,7 @@ func mapPapers(papers []*domain.Paper) []presenters.Paper {
 			Authors:          cloneStringSlice(p.Authors),
 			Institutions:     cloneStringSlice(p.Institutions),
 			Identifiers:      mapPaperIdentifiers(p.Identifiers),
+			Score:            p.Score,
 		})
 	}
 	return out

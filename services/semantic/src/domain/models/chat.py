@@ -1,3 +1,9 @@
+from typing import List, Optional
+
+from src.domain.models.paper import PaperModel
+from src.domain.models.search import SearchResult
+
+
 class ChatModel:
     def __init__(self,id,user_id,updated_at,title):
         self.id=id
@@ -5,7 +11,7 @@ class ChatModel:
         self.updated_at=updated_at
         self.title=title
 class ChatMessage:
-    def __init__(self,search_query,created_at,papers):
+    def __init__(self,search_query,created_at,search_res:List[SearchResult]):
         self.search_query=search_query
         self.created_at=created_at
-        self.papers=papers
+        self.search_res=search_res

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
+from src.domain.models.search import SearchResult
 from src.domain.models.chat import ChatMessage, ChatModel
 from src.domain.models.paper import PaperModel
 
@@ -71,7 +72,7 @@ class ChatRepository:
             conn.commit()
         return None
 
-    def create_chat_message(self, chat_id: int, search_query: str, papers: List[PaperModel]) -> ChatMessage:
+    def create_chat_message(self, chat_id: int, search_query: str, search_res: List[SearchResult]) -> ChatMessage:
         with psycopg.connect(self.dsn, row_factory=dict_row) as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -88,17 +89,18 @@ class ChatRepository:
                 chat_history_id = row["chat_history_id"]
                 created_at = row["created_at"]
 
-                if papers:
+                if search_res:
                     insert_query = """
                         INSERT INTO search_results (chat_history_id, paper_id, score, rank)
                         VALUES (%s, %s, %s, %s)
                     """
                     values = []
-                    for idx, paper in enumerate(papers):
-                        paper_id = self._normalize_paper_id(paper)
+                    search_res.sort(reverse=True,key=lambda x:x.score)
+                    for idx, search in enumerate(search_res):
+                        paper_id = self._normalize_paper_id(search.paper)
                         if paper_id is None:
                             continue
-                        values.append((chat_history_id, paper_id, None, idx + 1))
+                        values.append((chat_history_id, paper_id, search.score, idx + 1))
                     if values:
                         cur.executemany(insert_query, values)
 
@@ -106,7 +108,7 @@ class ChatRepository:
                     "UPDATE chat SET updated_at = NOW() WHERE chat_id = %s",
                     (chat_id,),
                 )
-        return ChatMessage(search_query, created_at, papers)
+        return ChatMessage(search_query, created_at, search_res)
 
     def get_chat_history(self, chat_id: int) -> List[ChatMessage]:
         with psycopg.connect(self.dsn, row_factory=dict_row) as conn:
@@ -236,6 +238,7 @@ class ChatRepository:
                     cm.search_query,
                     cm.created_at,
                     sr.rank,
+                    sr.score,
                     p.paper_id,
                     p.title,
                     p.abstract,
@@ -244,6 +247,7 @@ class ChatRepository:
                     COALESCE(referenced.refs, ARRAY[]::text[]) AS referenced_works,
                     COALESCE(related.rels, ARRAY[]::text[]) AS related_works,
                     COALESCE(cited.cited_by, 0) AS cited_by_count,
+                    COALESCE(sr.rank, 0) AS rank,
                     COALESCE(authors_cte.names, ARRAY[]::text[]) AS authors,
                     COALESCE(institutions_cte.names, ARRAY[]::text[]) AS institutions,
                     COALESCE(identifiers_cte.items, '[]'::jsonb) AS identifiers
@@ -291,7 +295,9 @@ class ChatRepository:
                 Institutions=list(row.get("institutions") or []),
                 Identifiers=list(row.get("identifiers") or []),
             )
-            messages[history_id].papers.append(paper)
+            score = row.get("score")
+            search = SearchResult(paper,score)
+            messages[history_id].search_res.append(search)
         return [messages[history_id] for history_id in order]
 
     def get_user_chats(self, user_id: int) -> List[ChatModel]:

@@ -13,7 +13,7 @@ definitions:
         type: string
       papers:
         items:
-          $ref: '#/definitions/presenters.Paper'
+          $ref: '#/definitions/presenters.ChatPaper'
         type: array
       search_query:
         type: string
@@ -24,6 +24,45 @@ definitions:
         items:
           $ref: '#/definitions/presenters.ChatHistoryMessage'
         type: array
+    type: object
+  presenters.ChatPaper:
+    properties:
+      abstract:
+        type: string
+      authors:
+        items:
+          type: string
+        type: array
+      best_oa_location:
+        type: string
+      cited_by_count:
+        type: integer
+      id:
+        type: string
+      identifiers:
+        items:
+          $ref: '#/definitions/presenters.PaperIdentifier'
+        type: array
+      institutions:
+        items:
+          type: string
+        type: array
+      referenced_works:
+        items:
+          type: string
+        type: array
+      related_works:
+        items:
+          type: string
+        type: array
+      score:
+        type: number
+      state:
+        type: string
+      title:
+        type: string
+      year:
+        type: integer
     type: object
   presenters.ChatResponse:
     properties:
@@ -61,43 +100,6 @@ definitions:
         type: string
       comment:
         type: string
-    type: object
-  presenters.Paper:
-    properties:
-      abstract:
-        type: string
-      authors:
-        items:
-          type: string
-        type: array
-      best_oa_location:
-        type: string
-      cited_by_count:
-        type: integer
-      id:
-        type: string
-      identifiers:
-        items:
-          $ref: '#/definitions/presenters.PaperIdentifier'
-        type: array
-      institutions:
-        items:
-          type: string
-        type: array
-      referenced_works:
-        items:
-          type: string
-        type: array
-      related_works:
-        items:
-          type: string
-        type: array
-      state:
-        type: string
-      title:
-        type: string
-      year:
-        type: integer
     type: object
   presenters.PaperIdentifier:
     properties:

@@ -107,7 +107,7 @@ export interface ChatHistoryMessage {
   search_query: string
   created_at: string
   updated_at?: string
-  papers: PaperResponse[]
+  papers: ChatPaperResponse[]
 }
 
 export interface ChatHistoryResponse {
@@ -116,6 +116,22 @@ export interface ChatHistoryResponse {
 
 export interface PapersResponse {
   papers?: PaperResponse[]
+}
+
+export interface ChatPaperResponse {
+  abstract?: string
+  authors?: string[]
+  best_oa_location?: string
+  cited_by_count?: number
+  id?: string
+  identifiers?: PaperIdentifier[]
+  institutions?: string[]
+  referenced_works?: string[]
+  related_works?: string[]
+  title?: string
+  year?: number
+  state?: string
+  score: number
 }
 
 export interface PaperResponse {

@@ -87,7 +87,7 @@ func (c *chatService) GetChatHistory(ctx context.Context, chat_id int, user_id i
 		messages = append(messages, &domain.ChatHistoryMessage{
 			SearchQuery: message.SearchQuery,
 			CreatedAt:   message.CreatedAt,
-			Papers:      mapPapers(message.GetPapers().GetPapers()),
+			Papers:      mapChatPapers(message.GetPapers().GetPapers()),
 		})
 	}
 	return messages, nil
@@ -129,7 +129,7 @@ func (c *chatService) Search(ctx context.Context, input string, chat_id int, use
 	return &domain.ChatHistoryMessage{
 		SearchQuery: resp.GetSearchQuery(),
 		CreatedAt:   resp.GetCreatedAt(),
-		Papers:      mapPapers(resp.GetPapers().GetPapers()),
+		Papers:      mapChatPapers(resp.GetPapers().GetPapers()),
 	}, nil
 }
 

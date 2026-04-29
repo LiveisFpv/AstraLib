@@ -4,6 +4,7 @@ import math
 
 import grpc
 
+from src.domain.models.search import SearchResult
 from src.domain.models.chat import ChatMessage, ChatModel
 from src.domain.models.paper import PaperModel
 from src.domain.models.submission import SubmissionModel
@@ -476,6 +477,20 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
                 return int(float(value))
             except Exception:
                 return 0
+    
+    @staticmethod
+    def _to_float(value) -> float:
+        try:
+            if value is None:
+                return 0
+            if isinstance(value, float):
+                return float(value)
+            return 0
+        except Exception:
+            try:
+                return float(value)
+            except Exception:
+                return 0
 
     @classmethod
     def _paper_identifiers_to_proto(cls, value) -> list[service_pb2.PaperIdentifier]:
@@ -511,6 +526,23 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
             Authors=[cls._to_str(item) for item in getattr(paper, "Authors", [])],
             Institutions=[cls._to_str(item) for item in getattr(paper, "Institutions", [])],
             Identifiers=cls._paper_identifiers_to_proto(getattr(paper, "Identifiers", [])),
+        )
+    
+    @classmethod
+    def _search_res_to_proto(cls, paper: SearchResult) -> service_pb2.ChatPaperResponse:
+        return service_pb2.ChatPaperResponse(
+            ID=cls._to_str(paper.paper.ID),
+            Title=cls._to_str(paper.paper.Title),
+            Abstract=cls._to_str(paper.paper.Abstract),
+            Year=cls._to_int(paper.paper.Year),
+            Best_oa_location=cls._to_str(paper.paper.Best_oa_location),
+            Referenced_works=[cls._to_str(item) for item in getattr(paper.paper, "Referenced_works", [])],
+            Related_works=[cls._to_str(item) for item in getattr(paper.paper, "Related_works", [])],
+            Cited_by_count=cls._to_int(getattr(paper.paper, "Cited_by_count", 0)),
+            Authors=[cls._to_str(item) for item in getattr(paper.paper, "Authors", [])],
+            Institutions=[cls._to_str(item) for item in getattr(paper.paper, "Institutions", [])],
+            Identifiers=cls._paper_identifiers_to_proto(getattr(paper.paper, "Identifiers", [])),
+            Score=cls._to_float(paper.score)
         )
 
     @classmethod
@@ -567,14 +599,14 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
 
     @classmethod
     def _chat_message_to_proto(cls, message: ChatMessage) -> service_pb2.ChatMessage:
-        papers = service_pb2.PapersResponse()
-        for paper in message.papers:
-            papers.Papers.append(cls._paper_to_proto(paper))
+        chat_papers = service_pb2.ChatPapersResponse()
+        for result in message.search_res:
+            chat_papers.Papers.append(cls._search_res_to_proto(result))
         created_at = ""
         if getattr(message, "created_at", None) is not None:
             created_at = cls._to_str(message.created_at)
         return service_pb2.ChatMessage(
             Search_query=cls._to_str(message.search_query),
             Created_at=created_at,
-            papers=papers,
+            papers=chat_papers,
         )

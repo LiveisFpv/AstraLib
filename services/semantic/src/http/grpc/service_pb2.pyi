@@ -78,8 +78,8 @@ class ChatMessage(_message.Message):
     PAPERS_FIELD_NUMBER: _ClassVar[int]
     Search_query: str
     Created_at: str
-    papers: PapersResponse
-    def __init__(self, Search_query: _Optional[str] = ..., Created_at: _Optional[str] = ..., papers: _Optional[_Union[PapersResponse, _Mapping]] = ...) -> None: ...
+    papers: ChatPapersResponse
+    def __init__(self, Search_query: _Optional[str] = ..., Created_at: _Optional[str] = ..., papers: _Optional[_Union[ChatPapersResponse, _Mapping]] = ...) -> None: ...
 
 class UserChatsReq(_message.Message):
     __slots__ = ("User_id",)
@@ -175,11 +175,47 @@ class PaperResponse(_message.Message):
     Identifiers: _containers.RepeatedCompositeFieldContainer[PaperIdentifier]
     def __init__(self, ID: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., State: _Optional[str] = ..., Referenced_works: _Optional[_Iterable[str]] = ..., Related_works: _Optional[_Iterable[str]] = ..., Cited_by_count: _Optional[int] = ..., Authors: _Optional[_Iterable[str]] = ..., Institutions: _Optional[_Iterable[str]] = ..., Identifiers: _Optional[_Iterable[_Union[PaperIdentifier, _Mapping]]] = ...) -> None: ...
 
+class ChatPaperResponse(_message.Message):
+    __slots__ = ("ID", "Title", "Abstract", "Year", "Best_oa_location", "State", "Referenced_works", "Related_works", "Cited_by_count", "Authors", "Institutions", "Identifiers", "Score")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    TITLE_FIELD_NUMBER: _ClassVar[int]
+    ABSTRACT_FIELD_NUMBER: _ClassVar[int]
+    YEAR_FIELD_NUMBER: _ClassVar[int]
+    BEST_OA_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    REFERENCED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    RELATED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    CITED_BY_COUNT_FIELD_NUMBER: _ClassVar[int]
+    AUTHORS_FIELD_NUMBER: _ClassVar[int]
+    INSTITUTIONS_FIELD_NUMBER: _ClassVar[int]
+    IDENTIFIERS_FIELD_NUMBER: _ClassVar[int]
+    SCORE_FIELD_NUMBER: _ClassVar[int]
+    ID: str
+    Title: str
+    Abstract: str
+    Year: int
+    Best_oa_location: str
+    State: str
+    Referenced_works: _containers.RepeatedScalarFieldContainer[str]
+    Related_works: _containers.RepeatedScalarFieldContainer[str]
+    Cited_by_count: int
+    Authors: _containers.RepeatedScalarFieldContainer[str]
+    Institutions: _containers.RepeatedScalarFieldContainer[str]
+    Identifiers: _containers.RepeatedCompositeFieldContainer[PaperIdentifier]
+    Score: float
+    def __init__(self, ID: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., State: _Optional[str] = ..., Referenced_works: _Optional[_Iterable[str]] = ..., Related_works: _Optional[_Iterable[str]] = ..., Cited_by_count: _Optional[int] = ..., Authors: _Optional[_Iterable[str]] = ..., Institutions: _Optional[_Iterable[str]] = ..., Identifiers: _Optional[_Iterable[_Union[PaperIdentifier, _Mapping]]] = ..., Score: _Optional[float] = ...) -> None: ...
+
 class PapersResponse(_message.Message):
     __slots__ = ("Papers",)
     PAPERS_FIELD_NUMBER: _ClassVar[int]
     Papers: _containers.RepeatedCompositeFieldContainer[PaperResponse]
     def __init__(self, Papers: _Optional[_Iterable[_Union[PaperResponse, _Mapping]]] = ...) -> None: ...
+
+class ChatPapersResponse(_message.Message):
+    __slots__ = ("Papers",)
+    PAPERS_FIELD_NUMBER: _ClassVar[int]
+    Papers: _containers.RepeatedCompositeFieldContainer[ChatPaperResponse]
+    def __init__(self, Papers: _Optional[_Iterable[_Union[ChatPaperResponse, _Mapping]]] = ...) -> None: ...
 
 class PaperIdentifier(_message.Message):
     __slots__ = ("Type", "Value")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
+from src.domain.models.search import SearchResult
 from src.domain.models.chat import ChatMessage, ChatModel
 from src.domain.models.paper import PaperModel
 from src.storage.chat_repository import ChatRepository
@@ -30,7 +31,7 @@ class ChatService:
         self.user_service.ensure_user(user_id)
         return self.repository.get_user_chats(user_id)
 
-    def record_chat_message(self, chat_id: int, search_query: str, papers: List[PaperModel]) -> ChatMessage:
+    def record_chat_message(self, chat_id: int, search_query: str, papers: List[SearchResult]) -> ChatMessage:
         return self.repository.create_chat_message(chat_id, search_query, papers)
 
     def is_chat_owner(self, chat_id:int,user_id:int)->bool:

@@ -102,6 +102,21 @@ function startDrag(event: PointerEvent) {
   document.addEventListener('pointercancel', stopDrag)
 }
 
+function getViewport() {
+  return scrollViewportRef.value
+}
+
+function scrollTo(options: ScrollToOptions) {
+  scrollViewportRef.value?.scrollTo(options)
+  nextTick(updateScrollbar)
+}
+
+defineExpose({
+  getViewport,
+  scrollTo,
+  updateScrollbar,
+})
+
 onMounted(() => {
   window.addEventListener('resize', updateScrollbar)
 

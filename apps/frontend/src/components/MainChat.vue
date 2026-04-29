@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSettingStore } from '@/stores/settingStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatStore, type PaperCard } from '@/stores/chatStore'
@@ -8,6 +8,13 @@ import { AlibApi } from '@/api/useAlibApi'
 import type { PaperResponse } from '@/api/types'
 import { useI18n } from '@/i18n'
 import { copyToClipboard } from '@/utils/copyToClipboard'
+import CustomScrollbar from '@/components/CustomScrollbar.vue'
+
+type CustomScrollbarExpose = {
+  getViewport: () => HTMLElement | null
+  scrollTo: (options: ScrollToOptions) => void
+  updateScrollbar: () => void
+}
 
 const useSetting = useSettingStore()
 const auth = useAuthStore()
@@ -22,8 +29,12 @@ const isChatsLoading = ref(false)
 
 const selectedMessageId = ref<string | null>(null)
 const selectedPaperKey = ref<string | null>(null)
-const logRef = ref<HTMLElement | null>(null)
+const logRef = ref<CustomScrollbarExpose | null>(null)
+const endSpacerRef = ref<HTMLElement | null>(null)
 const previewAbstractExpanded = ref(false)
+const endSpacerHeight = ref(0)
+let layoutResizeObserver: ResizeObserver | null = null
+let observedLogViewport: HTMLElement | null = null
 
 const messages = computed(() => chatStore.activeChat?.messages ?? [])
 const hasMessages = computed(() => messages.value.length > 0)
@@ -87,6 +98,72 @@ const timeFormatter = new Intl.DateTimeFormat(undefined, {
 
 function formatTime(ts: number) {
   return timeFormatter.format(new Date(ts))
+}
+
+function getLogViewport() {
+  return logRef.value?.getViewport() ?? null
+}
+
+function getSelectedTurn() {
+  const log = getLogViewport()
+  const selectedId = selectedMessageId.value
+  if (!log || !selectedId) return null
+  return (
+    Array.from(log.querySelectorAll<HTMLElement>('[data-chat-turn]')).find(
+      (item) => item.dataset.messageId === selectedId,
+    ) ?? null
+  )
+}
+
+function getTurnScrollTop(log: HTMLElement, turn: HTMLElement) {
+  const logRect = log.getBoundingClientRect()
+  const turnRect = turn.getBoundingClientRect()
+  return log.scrollTop + turnRect.top - logRect.top
+}
+
+function scrollSelectedTurnIntoView() {
+  const log = getLogViewport()
+  const turn = getSelectedTurn()
+  if (!log || !turn) return
+  logRef.value?.scrollTo({
+    top: getTurnScrollTop(log, turn),
+    behavior: 'auto',
+  })
+}
+
+function updateEndSpacerHeight() {
+  const log = getLogViewport()
+  const turn = getSelectedTurn()
+  if (!log || !turn) {
+    endSpacerHeight.value = 0
+    return
+  }
+  const currentSpacerHeight = endSpacerRef.value?.offsetHeight ?? 0
+  const naturalScrollHeight = log.scrollHeight - currentSpacerHeight
+  const requiredScrollHeight = getTurnScrollTop(log, turn) + log.clientHeight
+  const requiredSpace = requiredScrollHeight - naturalScrollHeight
+  endSpacerHeight.value = Math.max(0, Math.ceil(requiredSpace))
+}
+
+async function alignSelectedTurn() {
+  await nextTick()
+  updateEndSpacerHeight()
+  await nextTick()
+  scrollSelectedTurnIntoView()
+  logRef.value?.updateScrollbar()
+}
+
+function observeLogViewport() {
+  if (!layoutResizeObserver) return
+  const viewport = getLogViewport()
+  if (observedLogViewport === viewport) return
+  if (observedLogViewport) {
+    layoutResizeObserver.unobserve(observedLogViewport)
+  }
+  observedLogViewport = viewport
+  if (observedLogViewport) {
+    layoutResizeObserver.observe(observedLogViewport)
+  }
 }
 
 function toTimestamp(value?: string | number | null) {
@@ -198,10 +275,7 @@ async function runSearch(text?: string) {
     }
     selectedMessageId.value = message.id
     selectedPaperKey.value = mapped[0]?.key ?? null
-    await nextTick()
-    if (logRef.value) {
-      logRef.value.scrollTop = logRef.value.scrollHeight
-    }
+    await alignSelectedTurn()
   } catch (error: any) {
     errorMsg.value = error?.message || t('chat.error.failed')
   } finally {
@@ -217,6 +291,7 @@ function selectPaper(messageId: string, paperKey: string) {
   selectedMessageId.value = messageId
   selectedPaperKey.value = paperKey
   previewAbstractExpanded.value = false
+  void alignSelectedTurn()
 }
 
 function buildCitation(paper: PaperCard) {
@@ -279,7 +354,22 @@ onMounted(() => {
   if (auth.isAuthenticated) {
     loadChats()
   }
+  if (typeof ResizeObserver !== 'undefined') {
+    layoutResizeObserver = new ResizeObserver(() => {
+      void alignSelectedTurn()
+    })
+    nextTick(observeLogViewport)
+  }
 })
+
+watch(
+  logRef,
+  async () => {
+    await nextTick()
+    observeLogViewport()
+  },
+  { flush: 'post' },
+)
 
 watch(
   () => auth.isAuthenticated,
@@ -308,10 +398,7 @@ watch(
       selectedMessageId.value = last.id
       selectedPaperKey.value = last.results[0]?.key ?? null
       previewAbstractExpanded.value = false
-      await nextTick()
-      if (logRef.value) {
-        logRef.value.scrollTop = logRef.value.scrollHeight
-      }
+      await alignSelectedTurn()
     } else {
       selectedMessageId.value = null
       selectedPaperKey.value = null
@@ -324,13 +411,23 @@ watch(
 watch(
   messages,
   async () => {
-    await nextTick()
-    if (logRef.value) {
-      logRef.value.scrollTop = logRef.value.scrollHeight
-    }
+    await alignSelectedTurn()
   },
   { deep: true },
 )
+
+watch(
+  previewAbstractExpanded,
+  async () => {
+    await alignSelectedTurn()
+  },
+  { flush: 'post' },
+)
+
+onBeforeUnmount(() => {
+  layoutResizeObserver?.disconnect()
+  observedLogViewport = null
+})
 </script>
 <template>
   <div class="chat" :class="{ collapsed: useSetting.LeftTabHidden }">
@@ -340,11 +437,23 @@ watch(
         <span v-else class="status__error">{{ errorMsg }}</span>
       </div>
 
-      <div class="chat-log" ref="logRef">
+      <CustomScrollbar
+        ref="logRef"
+        class="chat-log"
+        bottom-padding="var(--space-3)"
+        track-bottom="var(--space-3)"
+        content-gap="var(--space-4)"
+        content-padding-right="6px"
+        thumb-width="6px"
+        :min-thumb-height="28"
+        :max-thumb-height="72"
+      >
         <template v-if="hasMessages">
           <section
             v-for="message in messages"
             :key="message.id"
+            :data-message-id="message.id"
+            data-chat-turn
             class="chat-turn"
             :class="{ active: message.id === selectedMessageId }"
           >
@@ -454,7 +563,14 @@ watch(
         <div v-else class="empty-state">
           <p>{{ t('chat.empty') }}</p>
         </div>
-      </div>
+        <div
+          v-if="hasMessages"
+          ref="endSpacerRef"
+          class="chat-log__end-spacer"
+          :style="{ height: `${endSpacerHeight}px` }"
+          aria-hidden="true"
+        ></div>
+      </CustomScrollbar>
     </div>
 
     <form class="input-area" @submit.prevent="onSubmit">
@@ -525,13 +641,11 @@ watch(
 .chat-log {
   position: relative;
   grid-row: 2;
-  overflow-y: auto;
   min-height: 0;
-  padding-right: 6px;
-  display: grid;
-  gap: var(--space-4);
-  align-content: start;
-  padding-bottom: var(--space-3);
+}
+.chat-log__end-spacer {
+  min-height: 0;
+  pointer-events: none;
 }
 .chat-log:first-child {
   grid-row: 1 / -1;
@@ -698,6 +812,8 @@ watch(
 .paper-preview {
   position: sticky;
   top: var(--space-4);
+  min-width: 0;
+  max-width: 100%;
   background: var(--color-preview);
   border-radius: 18px;
   padding: var(--space-4);
@@ -706,18 +822,23 @@ watch(
   max-height: calc(100vh - 180px);
   min-height: min(420px, calc(100vh - 180px));
   overflow-y: auto;
+  overflow-x: hidden;
   align-self: start;
   backdrop-filter: blur(12px);
 }
 .paper-preview__header {
   display: grid;
   gap: var(--space-3);
+  min-width: 0;
   margin-bottom: var(--space-3);
 }
 .paper-preview h3 {
   margin: 0;
   font-size: 1.15rem;
   line-height: 1.3;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .paper-preview__abstract {
   margin: 0 0 var(--space-3);
@@ -725,39 +846,48 @@ watch(
   font-size: 0.94rem;
   line-height: 1.58;
   display: -webkit-box;
+  min-width: 0;
   overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 7;
+  -webkit-line-clamp: 8;
 }
 .paper-preview__abstract.expanded {
-  display: block;
-  overflow: visible;
-  -webkit-line-clamp: unset;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 15;
 }
 .paper-preview__meta {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+  min-width: 0;
   font-size: 0.85rem;
   color: var(--color-muted);
 }
 .paper-preview__meta-item {
   display: inline-flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 0.35rem;
   min-width: 0;
+  max-width: 100%;
   padding: 0.25rem 0.55rem;
   border: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 26%);
   border-radius: 999px;
   background: color-mix(in oklab, var(--color-panel-elevated), transparent 22%);
 }
 .paper-preview__meta-label {
+  flex: 0 0 auto;
   color: var(--color-accent-muted);
   font-size: 0.72rem;
   font-weight: 700;
 }
 .paper-preview__meta-value {
+  flex: 1 1 auto;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -784,6 +914,7 @@ watch(
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .btn--tiny {

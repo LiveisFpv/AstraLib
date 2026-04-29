@@ -68,7 +68,7 @@ async function handleCopyActiveChat() {
 </script>
 <template>
   <div class="up-tab" :class="{ collapsed: useSetting.LeftTabHidden }">
-    <img class="logo brand-logo" src="/src/assets/text-logo.svg" style="width: auto; height: 40px" />
+    <img class="logo brand-logo" src="/src/assets/text-logo.svg" alt="Astralib" />
     <div class="button-group">
       <button
         class="btn avatar"
@@ -113,11 +113,12 @@ async function handleCopyActiveChat() {
   left: 310px;
   right: 0;
   height: 60px;
-  background-color: var(--color-bg-secondary);
-  border-bottom: 1px solid var(--color-border);
-  border-left: 1px solid var(--color-border);
+  background-color: var(--color-panel);
+  border-bottom: 1px solid var(--color-border-soft);
+  border-left: 1px solid var(--color-border-soft);
   border-bottom-left-radius: 30px;
-  padding: 10px 20px;
+  padding: 8px 22px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
   transition: all var(--transition-slow) ease;
 }
 .up-tab.collapsed {
@@ -149,6 +150,8 @@ async function handleCopyActiveChat() {
   height: 1.2em;
 }
 .brand-logo {
+  width: auto;
+  height: 44px;
   filter: none;
 }
 .btn.avatar {

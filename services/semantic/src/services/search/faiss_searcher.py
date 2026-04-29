@@ -47,6 +47,9 @@ class FaissSearcher:
                 Referenced_works=list(row.get("referenced_works") or []),
                 Related_works=list(row.get("related_works") or []),
                 Cited_by_count=int(row.get("cited_by_count") or 0),
+                Authors=list(row.get("authors") or []),
+                Institutions=list(row.get("institutions") or []),
+                Identifiers=list(row.get("identifiers") or []),
             )
             score = scores[idx] if idx < len(scores) else 0.0
             results.append(SearchResult(paper=paper, score=float(score)))

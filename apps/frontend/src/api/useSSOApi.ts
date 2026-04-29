@@ -55,8 +55,6 @@ export const SSOApi = {
     return api.get<UserListResponse>('/auth/admin/users', { params }).then((r) => r.data)
   },
   updateUserwithRoles(id: number, payload: UserUpdateRequestWithRoles) {
-    return api
-      .put<UserResponse>(`/auth/admin/users/${id}` as const, payload)
-      .then((r) => r.data)
+    return api.put<UserResponse>(`/auth/admin/users/${id}` as const, payload).then((r) => r.data)
   },
 }

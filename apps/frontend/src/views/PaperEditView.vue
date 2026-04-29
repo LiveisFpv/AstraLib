@@ -307,7 +307,13 @@ function goBack() {
             <button class="btn" type="button" @click="goBack">
               {{ t('common.cancel') }}
             </button>
-            <button class="btn danger" type="button" v-if="canDelete" :disabled="saving" @click="deleteSubmission">
+            <button
+              class="btn danger"
+              type="button"
+              v-if="canDelete"
+              :disabled="saving"
+              @click="deleteSubmission"
+            >
               {{ t('common.delete') }}
             </button>
             <button class="btn" type="button" v-if="canEdit" :disabled="saving" @click="saveDraft">

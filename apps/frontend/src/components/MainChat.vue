@@ -3,13 +3,16 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useSettingStore } from '@/stores/settingStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useChatStore, type PaperCard } from '@/stores/chatStore'
+import { useToastStore } from '@/stores/toastStore'
 import { AlibApi } from '@/api/useAlibApi'
 import type { PaperResponse } from '@/api/types'
 import { useI18n } from '@/i18n'
+import { copyToClipboard } from '@/utils/copyToClipboard'
 
 const useSetting = useSettingStore()
 const auth = useAuthStore()
 const chatStore = useChatStore()
+const toastStore = useToastStore()
 const { t } = useI18n()
 
 const query = ref('')
@@ -20,6 +23,7 @@ const isChatsLoading = ref(false)
 const selectedMessageId = ref<string | null>(null)
 const selectedPaperKey = ref<string | null>(null)
 const logRef = ref<HTMLElement | null>(null)
+const previewAbstractExpanded = ref(false)
 
 const messages = computed(() => chatStore.activeChat?.messages ?? [])
 const hasMessages = computed(() => messages.value.length > 0)
@@ -37,6 +41,44 @@ const activePaper = computed(() => {
   if (!message || !selectedPaperKey.value) return null
   return message.results.find((paper) => paper.key === selectedPaperKey.value) ?? null
 })
+
+const activePaperMeta = computed(() => {
+  const paper = activePaper.value
+  if (!paper) return []
+  const items: Array<{ label: string; value: string | number }> = []
+  if (paper.authors.length) {
+    items.push({ label: t('chat.preview.authors'), value: paper.authors.join(', ') })
+  }
+  if (paper.year) items.push({ label: t('chat.preview.year'), value: paper.year })
+  if (paper.sourceName) items.push({ label: t('chat.preview.source'), value: paper.sourceName })
+  if (paper.institutions.length) {
+    items.push({
+      label: t('chat.preview.institutions'),
+      value: paper.institutions.slice(0, 3).join(', '),
+    })
+  }
+  if (typeof paper.citedByCount === 'number' && paper.citedByCount > 0) {
+    items.push({ label: t('chat.preview.citations'), value: paper.citedByCount })
+  }
+  if (paper.referencedWorks.length) {
+    items.push({ label: t('chat.preview.references'), value: paper.referencedWorks.length })
+  }
+  if (paper.relatedWorks.length) {
+    items.push({ label: t('chat.preview.related'), value: paper.relatedWorks.length })
+  }
+  const primaryIdentifier =
+    paper.identifiers.find((item) => item.type?.toLowerCase() === 'doi') ??
+    paper.identifiers.find((item) => item.value)
+  if (primaryIdentifier?.value) {
+    const label = primaryIdentifier.type?.toUpperCase() || t('chat.preview.identifier')
+    items.push({ label, value: primaryIdentifier.value })
+  } else if (paper.id && !paper.sourceName) {
+    items.push({ label: t('chat.preview.identifier'), value: paper.id })
+  }
+  return items
+})
+
+const canTogglePreviewAbstract = computed(() => (activePaper.value?.abstract.length ?? 0) > 520)
 
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
@@ -82,6 +124,11 @@ function normalizeBestLocation(raw: unknown): Record<string, any> | null {
   return null
 }
 
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.map((item) => String(item).trim()).filter(Boolean)
+}
+
 const CHAT_TITLE_MAX = 60
 
 function buildChatTitle(raw: string) {
@@ -106,6 +153,12 @@ function toPaperCard(paper: PaperResponse, index: number): PaperCard | null {
     landingUrl: best?.landing_page_url || paper.best_oa_location, // Надо что-то подумать
     isOpenAccess: best?.is_oa || paper.best_oa_location != '',
     sourceName: best?.source?.display_name,
+    authors: normalizeStringArray(paper.authors),
+    institutions: normalizeStringArray(paper.institutions),
+    identifiers: paper.identifiers ?? [],
+    referencedWorks: normalizeStringArray(paper.referenced_works),
+    relatedWorks: normalizeStringArray(paper.related_works),
+    citedByCount: paper.cited_by_count,
   }
 }
 
@@ -163,6 +216,22 @@ function onSubmit() {
 function selectPaper(messageId: string, paperKey: string) {
   selectedMessageId.value = messageId
   selectedPaperKey.value = paperKey
+  previewAbstractExpanded.value = false
+}
+
+function buildCitation(paper: PaperCard) {
+  const authors = paper.authors.length ? `${paper.authors.join(', ')}. ` : ''
+  const details = [paper.sourceName, paper.year].filter(Boolean).join(', ')
+  return details ? `${authors}${paper.title}. ${details}.` : `${authors}${paper.title}.`
+}
+
+async function copyCitation() {
+  const paper = activePaper.value
+  if (!paper) return
+  const copied = await copyToClipboard(buildCitation(paper))
+  toastStore.show(copied ? t('chat.citation.copyOk') : t('chat.citation.copyFail'), {
+    variant: copied ? 'success' : 'error',
+  })
 }
 
 async function loadChats() {
@@ -229,6 +298,7 @@ watch(
     if (!chatId) {
       selectedMessageId.value = null
       selectedPaperKey.value = null
+      previewAbstractExpanded.value = false
       return
     }
     await loadChatHistory(chatId)
@@ -237,6 +307,7 @@ watch(
       const last = msgs[msgs.length - 1]
       selectedMessageId.value = last.id
       selectedPaperKey.value = last.results[0]?.key ?? null
+      previewAbstractExpanded.value = false
       await nextTick()
       if (logRef.value) {
         logRef.value.scrollTop = logRef.value.scrollHeight
@@ -244,6 +315,7 @@ watch(
     } else {
       selectedMessageId.value = null
       selectedPaperKey.value = null
+      previewAbstractExpanded.value = false
     }
   },
   { immediate: true },
@@ -315,17 +387,47 @@ watch(
               </div>
 
               <aside v-if="message.id === selectedMessageId && activePaper" class="paper-preview">
-                <h3>{{ activePaper.title }}</h3>
-                <p class="paper-preview__abstract">{{ activePaper.abstract }}</p>
-                <div class="paper-preview__meta">
-                  <span v-if="activePaper.year"
-                    >{{ t('chat.preview.year') }}: {{ activePaper.year }}</span
-                  >
-                  <span v-if="activePaper.sourceName"
-                    >{{ t('chat.preview.source') }}: {{ activePaper.sourceName }}</span
-                  >
-                </div>
+                <header class="paper-preview__header">
+                  <h3>{{ activePaper.title }}</h3>
+                  <div v-if="activePaperMeta.length" class="paper-preview__meta">
+                    <span
+                      v-for="item in activePaperMeta"
+                      :key="item.label"
+                      class="paper-preview__meta-item"
+                    >
+                      <span class="paper-preview__meta-label">{{ item.label }}</span>
+                      <span class="paper-preview__meta-value">{{ item.value }}</span>
+                    </span>
+                  </div>
+                </header>
+                <p
+                  class="paper-preview__abstract"
+                  :class="{ expanded: previewAbstractExpanded }"
+                >
+                  {{ activePaper.abstract }}
+                </p>
+                <button
+                  v-if="canTogglePreviewAbstract"
+                  type="button"
+                  class="paper-preview__toggle"
+                  @click="previewAbstractExpanded = !previewAbstractExpanded"
+                >
+                  {{
+                    previewAbstractExpanded
+                      ? t('chat.preview.showLess')
+                      : t('chat.preview.showMore')
+                  }}
+                </button>
                 <div class="paper-preview__links">
+                  <a
+                    v-if="activePaper.landingUrl"
+                    :href="activePaper.landingUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="btn btn--tiny btn--primary-action"
+                  >
+                    {{ t('chat.link.openArticle') }}
+                  </a>
                   <a
                     v-if="activePaper.pdfUrl"
                     :href="activePaper.pdfUrl"
@@ -335,15 +437,13 @@ watch(
                   >
                     {{ t('chat.link.openPdf') }}
                   </a>
-                  <a
-                    v-if="activePaper.landingUrl"
-                    :href="activePaper.landingUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="btn btn--tiny"
+                  <button
+                    type="button"
+                    class="btn btn--tiny btn--secondary-action"
+                    @click="copyCitation"
                   >
-                    {{ t('chat.link.articlePage') }}
-                  </a>
+                    {{ t('chat.action.copyCitation') }}
+                  </button>
                 </div>
               </aside>
             </div>
@@ -384,12 +484,19 @@ watch(
   left: 310px;
   right: 60px;
   bottom: 20px;
-  background-color: var(--color-bg-secondary);
-  border-radius: 15px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-panel), var(--color-surface) 4%),
+      var(--color-panel)
+    );
+  border: 1px solid var(--color-border-soft);
+  border-radius: 18px;
   padding: var(--space-4);
   display: grid;
   grid-template-rows: 1fr auto;
   gap: var(--space-3);
+  box-shadow: var(--shadow-elevated);
   transition: all var(--transition-slow) ease;
 }
 .chat.collapsed {
@@ -399,8 +506,9 @@ watch(
 .main-chat {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-3);
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -416,27 +524,36 @@ watch(
 
 .chat-log {
   position: relative;
+  grid-row: 2;
   overflow-y: auto;
-  padding-right: 4px;
+  min-height: 0;
+  padding-right: 6px;
   display: grid;
   gap: var(--space-4);
-  padding-bottom: var(--space-2);
+  align-content: start;
+  padding-bottom: var(--space-3);
+}
+.chat-log:first-child {
+  grid-row: 1 / -1;
 }
 
 .chat-turn {
-  background: rgba(0, 0, 0, 0.03);
-  border-radius: var(--radius-lg);
+  background: var(--color-panel-elevated);
+  border-radius: 18px;
   padding: var(--space-4);
   display: grid;
   gap: var(--space-3);
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-soft);
+  box-shadow: var(--shadow-card);
   transition:
     border-color var(--transition-fast) ease,
-    box-shadow var(--transition-fast) ease;
+    box-shadow var(--transition-fast) ease,
+    background var(--transition-fast) ease;
 }
 .chat-turn.active {
   border-color: var(--color-primary-secondary);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
+  background: color-mix(in oklab, var(--color-panel-elevated), var(--color-primary) 4%);
+  box-shadow: var(--shadow-elevated);
 }
 .chat-turn__header {
   display: flex;
@@ -466,47 +583,52 @@ watch(
 
 .results-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.9fr);
   gap: var(--space-4);
   align-items: start;
 }
 
 .cards {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-3);
-  flex-wrap: wrap;
+  align-content: start;
   position: relative;
   z-index: 1;
 }
 
 .paper-card {
   position: relative;
-  flex: 1 1 260px;
   min-width: 240px;
-  background: var(--color-bg);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-  border: 1px solid transparent;
+  min-height: 168px;
+  background: var(--color-card);
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  box-shadow: var(--shadow-card);
+  border: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 32%);
   transition:
     transform var(--transition-fast) ease,
     box-shadow var(--transition-fast) ease,
-    border-color var(--transition-fast) ease;
+    border-color var(--transition-fast) ease,
+    background var(--transition-fast) ease;
   cursor: pointer;
   outline: none;
 }
 .paper-card:hover,
 .paper-card:focus-visible {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevated);
   border-color: var(--color-primary-secondary);
   z-index: 2;
 }
 
 .paper-card--active {
+  background: var(--color-card-active);
   border-color: var(--color-primary-secondary);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.14);
-  transform: translateY(-6px) scale(1.015);
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-1px);
   z-index: 3;
 }
 
@@ -515,32 +637,56 @@ watch(
   gap: 4px;
 }
 .paper-card__year {
+  width: fit-content;
   font-size: 0.75rem;
-  color: var(--color-muted);
+  color: var(--color-accent-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0;
+  font-weight: 700;
 }
 .paper-card__title {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.075rem;
+  font-weight: 700;
+  line-height: 1.28;
 }
 .paper-card__abstract {
   margin: var(--space-2) 0 var(--space-3);
   color: var(--color-muted);
-  line-height: 1.4;
-  max-height: 6.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  max-height: none;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 .paper-card__footer {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: var(--space-2);
   font-size: 0.8rem;
   color: var(--color-muted);
 }
+.paper-card__source {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .paper-card__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0.18rem 0.5rem;
+  border: 1px solid var(--color-success-border);
+  border-radius: 999px;
+  background: var(--color-success-soft);
   color: var(--color-success);
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .no-results {
@@ -552,58 +698,138 @@ watch(
 .paper-preview {
   position: sticky;
   top: var(--space-4);
-  background: var(--color-bg);
-  border-radius: var(--radius-xl);
+  background: var(--color-preview);
+  border-radius: 18px;
   padding: var(--space-4);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
-  border: 1px solid var(--color-primary-secondary);
-  max-height: 60vh;
+  box-shadow: var(--shadow-elevated);
+  border: 1px solid var(--color-border-soft);
+  max-height: calc(100vh - 180px);
+  min-height: min(420px, calc(100vh - 180px));
   overflow-y: auto;
   align-self: start;
+  backdrop-filter: blur(12px);
+}
+.paper-preview__header {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 .paper-preview h3 {
-  margin: 0 0 var(--space-2);
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.3;
 }
 .paper-preview__abstract {
   margin: 0 0 var(--space-3);
-  line-height: 1.5;
+  color: var(--color-text-secondary);
+  font-size: 0.94rem;
+  line-height: 1.58;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 7;
+}
+.paper-preview__abstract.expanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
 }
 .paper-preview__meta {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
   font-size: 0.85rem;
   color: var(--color-muted);
-  margin-bottom: var(--space-3);
+}
+.paper-preview__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 26%);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-panel-elevated), transparent 22%);
+}
+.paper-preview__meta-label {
+  color: var(--color-accent-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.paper-preview__meta-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.paper-preview__toggle {
+  width: fit-content;
+  margin: -0.25rem 0 var(--space-3);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-accent-muted);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.paper-preview__toggle:hover,
+.paper-preview__toggle:focus-visible {
+  color: var(--color-primary-secondary);
+  text-decoration: underline;
+  outline: none;
 }
 .paper-preview__links {
   display: flex;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .btn--tiny {
   font-size: 0.8rem;
-  padding: 6px 10px;
+  padding: 7px 11px;
   border-radius: 999px;
+  border-color: color-mix(in oklab, var(--color-border-soft), transparent 15%);
+  background: color-mix(in oklab, var(--color-panel-elevated), var(--color-primary) 7%);
+  color: var(--color-text);
+}
+.btn--primary-action {
+  border-color: transparent;
   background: var(--color-primary-secondary);
-  color: var(--color-bg);
+  color: var(--color-primary-contrast);
+}
+.btn--secondary-action {
+  font: inherit;
+  font-size: 0.8rem;
 }
 
 .empty-state {
   text-align: center;
   color: var(--color-muted);
+  min-height: 45vh;
+  display: grid;
+  place-items: center;
   padding: var(--space-4) 0;
+  border: 1px dashed var(--color-border-soft);
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--color-panel-elevated), transparent 28%);
+}
+.empty-state p {
+  color: inherit;
+  margin: 0;
 }
 
 .input-area {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-bg);
+  border: 1px solid var(--color-border-soft);
+  border-radius: 20px;
+  background-color: var(--color-panel-elevated);
   color: var(--color-text);
   display: flex;
   gap: var(--space-2);
-  padding: 4px 6px;
+  padding: 10px;
   align-items: center;
+  box-shadow: var(--shadow-elevated);
 }
 
 .input-area input {
@@ -611,12 +837,22 @@ watch(
   outline: none;
   background: transparent;
   flex: 1;
-  padding: 10px;
+  padding: 12px 14px;
   font-size: 1rem;
+  color: var(--color-text);
+}
+
+.input-area input::placeholder {
+  color: color-mix(in oklab, var(--color-muted), transparent 22%);
 }
 
 .input-area button {
-  min-width: 120px;
+  min-width: 100px;
+  min-height: 40px;
+  border-color: transparent;
+  background: var(--color-primary-secondary);
+  color: var(--color-primary-contrast);
+  font-weight: 700;
 }
 .blocked-note {
   color: var(--color-danger);
@@ -631,6 +867,7 @@ watch(
     position: relative;
     top: auto;
     max-height: none;
+    min-height: 0;
     margin-bottom: var(--space-3);
     margin-top: var(--space-3);
   }

@@ -66,16 +66,45 @@ definitions:
     properties:
       abstract:
         type: string
+      authors:
+        items:
+          type: string
+        type: array
       best_oa_location:
         type: string
+      cited_by_count:
+        type: integer
       id:
         type: string
+      identifiers:
+        items:
+          $ref: '#/definitions/presenters.PaperIdentifier'
+        type: array
+      institutions:
+        items:
+          type: string
+        type: array
+      referenced_works:
+        items:
+          type: string
+        type: array
+      related_works:
+        items:
+          type: string
+        type: array
       state:
         type: string
       title:
         type: string
       year:
         type: integer
+    type: object
+  presenters.PaperIdentifier:
+    properties:
+      type:
+        type: string
+      value:
+        type: string
     type: object
   presenters.SubmissionListResponse:
     properties:

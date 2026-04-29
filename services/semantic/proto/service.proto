@@ -122,9 +122,20 @@ message PaperResponse{
     int64 Year = 4;
     string Best_oa_location = 5;
     string State = 6;
+    repeated string Referenced_works = 7;
+    repeated string Related_works = 8;
+    int64 Cited_by_count = 9;
+    repeated string Authors = 10;
+    repeated string Institutions = 11;
+    repeated PaperIdentifier Identifiers = 12;
 }
 message PapersResponse{
     repeated PaperResponse Papers = 1;
+}
+
+message PaperIdentifier{
+    string Type = 1;
+    string Value = 2;
 }
 
 message AddRequest{

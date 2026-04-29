@@ -1,8 +1,7 @@
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable, Mapping as _Mapping
-from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -149,26 +148,46 @@ class AuthorPaperReq(_message.Message):
     def __init__(self, Author_ID: _Optional[int] = ..., State: _Optional[str] = ...) -> None: ...
 
 class PaperResponse(_message.Message):
-    __slots__ = ("ID", "Title", "Abstract", "Year", "Best_oa_location", "State")
+    __slots__ = ("ID", "Title", "Abstract", "Year", "Best_oa_location", "State", "Referenced_works", "Related_works", "Cited_by_count", "Authors", "Institutions", "Identifiers")
     ID_FIELD_NUMBER: _ClassVar[int]
     TITLE_FIELD_NUMBER: _ClassVar[int]
     ABSTRACT_FIELD_NUMBER: _ClassVar[int]
     YEAR_FIELD_NUMBER: _ClassVar[int]
     BEST_OA_LOCATION_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
+    REFERENCED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    RELATED_WORKS_FIELD_NUMBER: _ClassVar[int]
+    CITED_BY_COUNT_FIELD_NUMBER: _ClassVar[int]
+    AUTHORS_FIELD_NUMBER: _ClassVar[int]
+    INSTITUTIONS_FIELD_NUMBER: _ClassVar[int]
+    IDENTIFIERS_FIELD_NUMBER: _ClassVar[int]
     ID: str
     Title: str
     Abstract: str
     Year: int
     Best_oa_location: str
     State: str
-    def __init__(self, ID: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., State: _Optional[str] = ...) -> None: ...
+    Referenced_works: _containers.RepeatedScalarFieldContainer[str]
+    Related_works: _containers.RepeatedScalarFieldContainer[str]
+    Cited_by_count: int
+    Authors: _containers.RepeatedScalarFieldContainer[str]
+    Institutions: _containers.RepeatedScalarFieldContainer[str]
+    Identifiers: _containers.RepeatedCompositeFieldContainer[PaperIdentifier]
+    def __init__(self, ID: _Optional[str] = ..., Title: _Optional[str] = ..., Abstract: _Optional[str] = ..., Year: _Optional[int] = ..., Best_oa_location: _Optional[str] = ..., State: _Optional[str] = ..., Referenced_works: _Optional[_Iterable[str]] = ..., Related_works: _Optional[_Iterable[str]] = ..., Cited_by_count: _Optional[int] = ..., Authors: _Optional[_Iterable[str]] = ..., Institutions: _Optional[_Iterable[str]] = ..., Identifiers: _Optional[_Iterable[_Union[PaperIdentifier, _Mapping]]] = ...) -> None: ...
 
 class PapersResponse(_message.Message):
     __slots__ = ("Papers",)
     PAPERS_FIELD_NUMBER: _ClassVar[int]
     Papers: _containers.RepeatedCompositeFieldContainer[PaperResponse]
     def __init__(self, Papers: _Optional[_Iterable[_Union[PaperResponse, _Mapping]]] = ...) -> None: ...
+
+class PaperIdentifier(_message.Message):
+    __slots__ = ("Type", "Value")
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    Type: str
+    Value: str
+    def __init__(self, Type: _Optional[str] = ..., Value: _Optional[str] = ...) -> None: ...
 
 class AddRequest(_message.Message):
     __slots__ = ("ID", "Title", "Abstract", "Year", "Best_oa_location", "Referenced_works", "Related_works", "State")

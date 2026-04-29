@@ -27,6 +27,27 @@ func mapPapers(papers []*pb.PaperResponse) []*domain.Paper {
 			Year:             int(p.Year),
 			Best_oa_location: p.BestOaLocation,
 			State:            p.State,
+			ReferencedWorks:  cloneStringSlice(p.GetReferencedWorks()),
+			RelatedWorks:     cloneStringSlice(p.GetRelatedWorks()),
+			CitedByCount:     int(p.GetCitedByCount()),
+			Authors:          cloneStringSlice(p.GetAuthors()),
+			Institutions:     cloneStringSlice(p.GetInstitutions()),
+			Identifiers:      mapPaperIdentifiers(p.GetIdentifiers()),
+		})
+	}
+	return out
+}
+
+func cloneStringSlice(values []string) []string {
+	return append([]string{}, values...)
+}
+
+func mapPaperIdentifiers(identifiers []*pb.PaperIdentifier) []domain.PaperIdentifier {
+	out := make([]domain.PaperIdentifier, 0, len(identifiers))
+	for _, identifier := range identifiers {
+		out = append(out, domain.PaperIdentifier{
+			Type:  identifier.GetType(),
+			Value: identifier.GetValue(),
 		})
 	}
 	return out

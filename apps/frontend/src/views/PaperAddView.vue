@@ -48,9 +48,7 @@ function buildPayload() {
     abstract: form.abstract.trim() || undefined,
     year: Number(form.year) || undefined,
     best_oa_location: form.best_oa_location.trim() || undefined,
-    related_paper: form.related_paper
-      .filter((r) => r.id.trim())
-      .map((r) => ({ id: r.id.trim() })),
+    related_paper: form.related_paper.filter((r) => r.id.trim()).map((r) => ({ id: r.id.trim() })),
     referenced_paper: form.referenced_paper
       .filter((r) => r.id.trim())
       .map((r) => ({ id: r.id.trim() })),

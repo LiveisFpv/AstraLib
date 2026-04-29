@@ -92,9 +92,7 @@ function replaceItem(submission: SubmissionRecord) {
 }
 
 const visibleItems = computed(() =>
-  statusFilter.value === 'all'
-    ? items
-    : items.filter((item) => item.status === statusFilter.value),
+  statusFilter.value === 'all' ? items : items.filter((item) => item.status === statusFilter.value),
 )
 
 function formatDate(value?: string) {
@@ -300,10 +298,16 @@ async function moderate(item: ModerationItem, action: ModerateSubmissionRequest[
             <section class="links">
               <div class="row">
                 <strong>{{ t('paperAdd.related') }}</strong>
-                <button class="btn" type="button" @click="addRelated(it)">{{ t('common.add') }}</button>
+                <button class="btn" type="button" @click="addRelated(it)">
+                  {{ t('common.add') }}
+                </button>
               </div>
               <div class="link-list" v-if="it.form.related_works.length">
-                <div class="link-item" v-for="(link, index) in it.form.related_works" :key="`rel-${index}`">
+                <div
+                  class="link-item"
+                  v-for="(link, index) in it.form.related_works"
+                  :key="`rel-${index}`"
+                >
                   <input type="text" v-model="link.id" />
                   <button class="btn" type="button" @click="removeRelated(it, index)">
                     {{ t('common.remove') }}
@@ -320,7 +324,11 @@ async function moderate(item: ModerationItem, action: ModerateSubmissionRequest[
                 </button>
               </div>
               <div class="link-list" v-if="it.form.referenced_works.length">
-                <div class="link-item" v-for="(link, index) in it.form.referenced_works" :key="`ref-${index}`">
+                <div
+                  class="link-item"
+                  v-for="(link, index) in it.form.referenced_works"
+                  :key="`ref-${index}`"
+                >
                   <input type="text" v-model="link.id" />
                   <button class="btn" type="button" @click="removeReferenced(it, index)">
                     {{ t('common.remove') }}
@@ -345,10 +353,20 @@ async function moderate(item: ModerationItem, action: ModerateSubmissionRequest[
               <textarea rows="3" v-model="it.draftComment"></textarea>
             </label>
             <div class="actions">
-              <button class="btn success" type="button" :disabled="it.saving" @click="moderate(it, 'approve')">
+              <button
+                class="btn success"
+                type="button"
+                :disabled="it.saving"
+                @click="moderate(it, 'approve')"
+              >
                 {{ t('mod.action.approve') }}
               </button>
-              <button class="btn danger" type="button" :disabled="it.saving" @click="moderate(it, 'reject')">
+              <button
+                class="btn danger"
+                type="button"
+                :disabled="it.saving"
+                @click="moderate(it, 'reject')"
+              >
                 {{ t('mod.action.reject') }}
               </button>
             </div>

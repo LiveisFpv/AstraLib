@@ -64,5 +64,11 @@ func (p *paperService) AddPaper(ctx context.Context, paper *domain.Paper, refere
 		Year:             int(paper_r.Year),
 		Best_oa_location: paper_r.BestOaLocation,
 		State:            paper_r.State,
+		ReferencedWorks:  cloneStringSlice(paper_r.GetReferencedWorks()),
+		RelatedWorks:     cloneStringSlice(paper_r.GetRelatedWorks()),
+		CitedByCount:     int(paper_r.GetCitedByCount()),
+		Authors:          cloneStringSlice(paper_r.GetAuthors()),
+		Institutions:     cloneStringSlice(paper_r.GetInstitutions()),
+		Identifiers:      mapPaperIdentifiers(paper_r.GetIdentifiers()),
 	}, err
 }

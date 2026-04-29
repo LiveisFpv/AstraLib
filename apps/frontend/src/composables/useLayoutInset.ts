@@ -20,4 +20,3 @@ export function useLayoutInset(options?: LayoutInsetOptions) {
     layoutInset,
   }
 }
-

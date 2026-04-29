@@ -1168,11 +1168,44 @@ const docTemplate = `{
                 "abstract": {
                     "type": "string"
                 },
+                "authors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "best_oa_location": {
                     "type": "string"
                 },
+                "cited_by_count": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
+                },
+                "identifiers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/presenters.PaperIdentifier"
+                    }
+                },
+                "institutions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "referenced_works": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "related_works": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "state": {
                     "type": "string"
@@ -1182,6 +1215,17 @@ const docTemplate = `{
                 },
                 "year": {
                     "type": "integer"
+                }
+            }
+        },
+        "presenters.PaperIdentifier": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         },

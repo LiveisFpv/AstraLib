@@ -190,19 +190,35 @@ async function handleLogout() {
             </label>
             <label>
               <span>{{ t('profile.form.firstName') }}</span>
-              <input v-model="form.first_name" type="text" :placeholder="t('profile.form.firstName')" />
+              <input
+                v-model="form.first_name"
+                type="text"
+                :placeholder="t('profile.form.firstName')"
+              />
             </label>
             <label>
               <span>{{ t('profile.form.lastName') }}</span>
-              <input v-model="form.last_name" type="text" :placeholder="t('profile.form.lastName')" />
+              <input
+                v-model="form.last_name"
+                type="text"
+                :placeholder="t('profile.form.lastName')"
+              />
             </label>
             <label>
               <span>{{ t('profile.form.locale') }}</span>
-              <input v-model="form.locale_type" type="text" :placeholder="t('profile.form.locale')" />
+              <input
+                v-model="form.locale_type"
+                type="text"
+                :placeholder="t('profile.form.locale')"
+              />
             </label>
             <label>
               <span>{{ t('profile.form.newPassword') }}</span>
-              <input v-model="form.password" type="password" :placeholder="t('profile.form.keepBlank')" />
+              <input
+                v-model="form.password"
+                type="password"
+                :placeholder="t('profile.form.keepBlank')"
+              />
             </label>
           </div>
           <div class="feedback">
@@ -210,7 +226,9 @@ async function handleLogout() {
             <span v-if="errorMsg" class="err">{{ errorMsg }}</span>
           </div>
           <div class="actions">
-            <button class="btn" :disabled="saving" @click="cancelEditing">{{ t('profile.btn.cancel') }}</button>
+            <button class="btn" :disabled="saving" @click="cancelEditing">
+              {{ t('profile.btn.cancel') }}
+            </button>
             <button class="btn btn--primary" :disabled="saving" @click="saveProfile">
               {{ saving ? t('profile.saving') : t('profile.btn.save') }}
             </button>
@@ -219,11 +237,7 @@ async function handleLogout() {
 
         <div class="actions" v-if="!editing">
           <button class="btn" @click="startEditing">{{ t('profile.btn.edit') }}</button>
-          <button
-            class="btn btn--primary"
-            :disabled="auth.isLoggingOut"
-            @click="handleLogout"
-          >
+          <button class="btn btn--primary" :disabled="auth.isLoggingOut" @click="handleLogout">
             {{ t('profile.btn.logout') }}
           </button>
         </div>

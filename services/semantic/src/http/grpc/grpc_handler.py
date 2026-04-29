@@ -98,6 +98,8 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
                 Year=request.Year,
                 Best_oa_location=request.Best_oa_location,
                 State=f"pending:{submission.submission_id}",
+                Referenced_works=[item.ID for item in request.Referenced_works],
+                Related_works=[item.ID for item in request.Related_works],
             )
         except Exception as exc:
             return self._handle_submission_exception(
@@ -476,6 +478,26 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
                 return 0
 
     @classmethod
+    def _paper_identifiers_to_proto(cls, value) -> list[service_pb2.PaperIdentifier]:
+        identifiers: list[service_pb2.PaperIdentifier] = []
+        for item in value or []:
+            if isinstance(item, dict):
+                type_value = item.get("type") or item.get("Type")
+                identifier_value = item.get("value") or item.get("Value")
+            else:
+                type_value = getattr(item, "type", None) or getattr(item, "Type", None)
+                identifier_value = getattr(item, "value", None) or getattr(item, "Value", None)
+            if not type_value and not identifier_value:
+                continue
+            identifiers.append(
+                service_pb2.PaperIdentifier(
+                    Type=cls._to_str(type_value),
+                    Value=cls._to_str(identifier_value),
+                )
+            )
+        return identifiers
+
+    @classmethod
     def _paper_to_proto(cls, paper: PaperModel) -> service_pb2.PaperResponse:
         return service_pb2.PaperResponse(
             ID=cls._to_str(paper.ID),
@@ -483,6 +505,12 @@ class SemanticServiceHandlerGrpc(service_pb2_grpc.SemanticServiceServicer):
             Abstract=cls._to_str(paper.Abstract),
             Year=cls._to_int(paper.Year),
             Best_oa_location=cls._to_str(paper.Best_oa_location),
+            Referenced_works=[cls._to_str(item) for item in getattr(paper, "Referenced_works", [])],
+            Related_works=[cls._to_str(item) for item in getattr(paper, "Related_works", [])],
+            Cited_by_count=cls._to_int(getattr(paper, "Cited_by_count", 0)),
+            Authors=[cls._to_str(item) for item in getattr(paper, "Authors", [])],
+            Institutions=[cls._to_str(item) for item in getattr(paper, "Institutions", [])],
+            Identifiers=cls._paper_identifiers_to_proto(getattr(paper, "Identifiers", [])),
         )
 
     @classmethod

@@ -12,6 +12,12 @@ export interface PaperCard {
   landingUrl?: string
   isOpenAccess?: boolean
   sourceName?: string
+  authors: string[]
+  institutions: string[]
+  identifiers: Array<{ type?: string; value?: string }>
+  referencedWorks: string[]
+  relatedWorks: string[]
+  citedByCount?: number
 }
 
 export interface ChatMessage {

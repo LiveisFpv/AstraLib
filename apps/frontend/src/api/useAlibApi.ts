@@ -76,7 +76,9 @@ export const AlibApi = {
     if (query.statuses?.length) params.statuses = query.statuses.join(',')
     if (typeof query.limit === 'number') params.limit = query.limit
     if (typeof query.offset === 'number') params.offset = query.offset
-    return api.get<SubmissionListResponse>('/moderation/submissions', { params }).then((r) => r.data)
+    return api
+      .get<SubmissionListResponse>('/moderation/submissions', { params })
+      .then((r) => r.data)
   },
   getModerationSubmission(submissionId: string | number) {
     const id = `${encodeURIComponent(String(submissionId))}`
@@ -84,9 +86,7 @@ export const AlibApi = {
   },
   updateModerationSubmission(submissionId: string | number, payload: SubmissionUpsertRequest) {
     const id = `${encodeURIComponent(String(submissionId))}`
-    return api
-      .put<SubmissionResponse>(`/moderation/submissions/${id}`, payload)
-      .then((r) => r.data)
+    return api.put<SubmissionResponse>(`/moderation/submissions/${id}`, payload).then((r) => r.data)
   },
   moderateSubmission(submissionId: string | number, payload: ModerateSubmissionRequest) {
     const id = `${encodeURIComponent(String(submissionId))}`

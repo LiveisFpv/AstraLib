@@ -120,11 +120,22 @@ export interface PapersResponse {
 
 export interface PaperResponse {
   abstract?: string
+  authors?: string[]
   best_oa_location?: string
+  cited_by_count?: number
   id?: string
+  identifiers?: PaperIdentifier[]
+  institutions?: string[]
+  referenced_works?: string[]
+  related_works?: string[]
   title?: string
   year?: number
   state?: string
+}
+
+export interface PaperIdentifier {
+  type?: string
+  value?: string
 }
 
 export type SubmissionStatus = 'draft' | 'pending' | 'approved' | 'rejected'

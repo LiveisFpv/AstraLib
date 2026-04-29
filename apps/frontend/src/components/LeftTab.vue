@@ -7,6 +7,7 @@ import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/authStore'
 import { useI18n } from '@/i18n'
 import ChatHistory from '@/components/ChatHistory.vue'
+import SettingsView from '@/views/SettingsView.vue'
 const authStore = useAuthStore()
 const { t } = useI18n()
 const router = useRouter()
@@ -16,11 +17,15 @@ const { LeftTabHidden } = storeToRefs(settingStore)
 const leftTabHidden = LeftTabHidden
 const canAuthorAccess = computed(() => !!authStore.User)
 const historyCancelToken = ref(0)
+const settingsOpen = ref(false)
 function toggleLeftTab() {
   settingStore.HideLeftTab()
 }
-function RedirecttoSettings() {
-  router.push('/settings')
+function openSettings() {
+  settingsOpen.value = true
+}
+function closeSettings() {
+  settingsOpen.value = false
 }
 function RedirecttoHome() {
   router.push('/')
@@ -124,13 +129,16 @@ defineProps<{
     </div>
     <ChatHistory v-if="!leftTabHidden" :cancel-token="historyCancelToken" />
     <div class="footer">
-      <button class="btn-menu btn" @click="RedirecttoSettings">
+      <button class="btn-menu btn" @click="openSettings">
         <div class="icon-text">
           <img src="/src/assets/manage-icon.svg" alt="S" class="logo" />
           <p v-if="!leftTabHidden">{{ t('nav.settings') }}</p>
         </div>
       </button>
     </div>
+    <Teleport to="body">
+      <SettingsView v-if="settingsOpen" @close="closeSettings" />
+    </Teleport>
   </div>
 </template>
 <style lang="css" scoped>

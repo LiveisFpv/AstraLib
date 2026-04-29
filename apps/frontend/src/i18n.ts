@@ -45,6 +45,8 @@ const messages: Record<Locale, Record<string, string>> = {
     'history.deletePromptTitle': 'Delete chat',
 
     'settings.title': 'Settings',
+    'settings.sections': 'Settings sections',
+    'settings.general': 'General',
     'settings.appearance': 'Appearance',
     'settings.dark': 'Dark theme',
     'settings.light': 'Light theme',
@@ -295,6 +297,8 @@ const messages: Record<Locale, Record<string, string>> = {
     'history.deletePromptTitle': 'Удалить чат',
 
     'settings.title': 'Настройки',
+    'settings.sections': 'Разделы настроек',
+    'settings.general': 'Общие',
     'settings.appearance': 'Оформление',
     'settings.dark': 'Тёмная тема',
     'settings.light': 'Светлая тема',

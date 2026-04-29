@@ -8,24 +8,22 @@ import { useAuthStore } from '@/stores/authStore'
 import { useI18n } from '@/i18n'
 import ChatHistory from '@/components/ChatHistory.vue'
 import SettingsView from '@/views/SettingsView.vue'
+import { useSettingsModalStore } from '@/stores/settingsModalStore'
 const authStore = useAuthStore()
 const { t } = useI18n()
 const router = useRouter()
 const settingStore = useSettingStore()
+const settingsModal = useSettingsModalStore()
 const chatStore = useChatStore()
 const { LeftTabHidden } = storeToRefs(settingStore)
 const leftTabHidden = LeftTabHidden
 const canAuthorAccess = computed(() => !!authStore.User)
 const historyCancelToken = ref(0)
-const settingsOpen = ref(false)
 function toggleLeftTab() {
   settingStore.HideLeftTab()
 }
 function openSettings() {
-  settingsOpen.value = true
-}
-function closeSettings() {
-  settingsOpen.value = false
+  settingsModal.open('general')
 }
 function RedirecttoHome() {
   router.push('/')
@@ -137,7 +135,11 @@ defineProps<{
       </button>
     </div>
     <Teleport to="body">
-      <SettingsView v-if="settingsOpen" @close="closeSettings" />
+      <SettingsView
+        v-if="settingsModal.isOpen"
+        :initial-section="settingsModal.section"
+        @close="settingsModal.close"
+      />
     </Teleport>
   </div>
 </template>

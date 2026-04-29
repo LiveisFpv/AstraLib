@@ -6,14 +6,12 @@ import { useAuthStore } from '@/stores/authStore'
 import { useSettingStore } from '@/stores/settingStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useToastStore } from '@/stores/toastStore'
+import { useSettingsModalStore } from '@/stores/settingsModalStore'
 import { useI18n } from '@/i18n'
 import ToastCenter from '@/components/ToastCenter.vue'
 import { copyToClipboard } from '@/utils/copyToClipboard'
 const authStore = useAuthStore()
 const router = useRouter()
-function RedirecttoProfile() {
-  router.push('/profile')
-}
 function RedirecttoAuth() {
   router.push('/auth')
 }
@@ -27,6 +25,7 @@ const useSetting = useSettingStore()
 const { t } = useI18n()
 const chatStore = useChatStore()
 const toastStore = useToastStore()
+const settingsModal = useSettingsModalStore()
 
 const props = defineProps<{
   showUpload?: boolean
@@ -72,7 +71,7 @@ async function handleCopyActiveChat() {
     <div class="button-group">
       <button
         class="btn avatar"
-        @click="RedirecttoProfile"
+        @click="settingsModal.open('profile')"
         v-if="authStore.isAuthenticated"
         :aria-label="t('profile.title')"
       >

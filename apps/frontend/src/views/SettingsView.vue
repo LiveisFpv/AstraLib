@@ -1,16 +1,84 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 import { useI18n } from '@/i18n'
+import type { SettingsSection } from '@/stores/settingsModalStore'
+import type { UserUpdateRequest } from '@/api/types'
 
 type Theme = 'light' | 'dark'
 const THEME_KEY = 'theme'
 
+const props = withDefaults(
+  defineProps<{
+    initialSection?: SettingsSection
+  }>(),
+  {
+    initialSection: 'general',
+  },
+)
+
 const emit = defineEmits<{
   close: []
 }>()
+
+const router = useRouter()
+const auth = useAuthStore()
 const { locale, setLocale, t } = useI18n()
+const activeSection = ref<SettingsSection>(props.initialSection)
 const theme = ref<Theme>('dark')
 const currentLang = computed(() => locale.value)
+const saving = ref(false)
+const successMsg = ref('')
+const errorMsg = ref('')
+
+const form = reactive({
+  email: '',
+  first_name: '',
+  last_name: '',
+  locale_type: '',
+  password: '',
+})
+
+watch(
+  () => props.initialSection,
+  (section) => {
+    activeSection.value = section
+  },
+)
+
+const fullName = computed(() => {
+  const user = auth.User
+  if (!user) return ''
+  return [user.first_name, user.last_name].filter(Boolean).join(' ')
+})
+
+const avatarUrl = computed(() => auth.User?.photo || '')
+
+const avatarLetter = computed(() => {
+  const user = auth.User
+  const name = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.email || ''
+  const trimmed = name.trim()
+  return trimmed ? trimmed[0].toUpperCase() : 'U'
+})
+
+watch(
+  () => auth.User,
+  () => {
+    resetFormFromUser()
+  },
+  { immediate: true },
+)
+
+function resetFormFromUser() {
+  const user = auth.User
+  if (!user) return
+  form.email = user.email || ''
+  form.first_name = user.first_name || ''
+  form.last_name = user.last_name || ''
+  form.locale_type = user.locale_type || ''
+  form.password = ''
+}
 
 function readSavedTheme(): Theme | null {
   try {
@@ -43,8 +111,59 @@ function chooseLang(nextLocale: 'en' | 'ru') {
   setLocale(nextLocale)
 }
 
+function setSection(section: SettingsSection) {
+  successMsg.value = ''
+  errorMsg.value = ''
+  activeSection.value = section
+}
+
 function closeSettings() {
   emit('close')
+}
+
+function buildPayload(): UserUpdateRequest {
+  const user = auth.User
+  const payload: UserUpdateRequest = {}
+  if (user) {
+    if (form.email && form.email !== user.email) payload.email = form.email
+    if (form.first_name !== user.first_name) payload.first_name = form.first_name
+    if (form.last_name !== user.last_name) payload.last_name = form.last_name
+    if ((form.locale_type || '') !== (user.locale_type || '')) {
+      payload.locale_type = form.locale_type || undefined
+    }
+  } else {
+    if (form.email) payload.email = form.email
+    if (form.first_name) payload.first_name = form.first_name
+    if (form.last_name) payload.last_name = form.last_name
+    if (form.locale_type) payload.locale_type = form.locale_type
+  }
+  if (form.password) payload.password = form.password
+  return payload
+}
+
+async function saveProfile() {
+  successMsg.value = ''
+  errorMsg.value = ''
+  const payload = buildPayload()
+  if (!Object.keys(payload).length) {
+    successMsg.value = t('profile.msg.nothing')
+    return
+  }
+  try {
+    saving.value = true
+    await auth.updateUser(payload)
+    successMsg.value = t('profile.msg.updated')
+  } catch (e: any) {
+    errorMsg.value = e?.message || t('profile.msg.failed')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function handleLogout() {
+  await auth.logout()
+  closeSettings()
+  await router.replace('/auth')
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -53,11 +172,16 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const currentTheme: Theme =
     (document.documentElement.dataset.theme as Theme) || readSavedTheme() || 'dark'
   theme.value = currentTheme
   document.addEventListener('keydown', handleKeydown)
+  if (auth.isAuthenticated && !auth.User) {
+    try {
+      await auth.authenticate()
+    } catch {}
+  }
 })
 
 onBeforeUnmount(() => {
@@ -82,8 +206,13 @@ onBeforeUnmount(() => {
         <span aria-hidden="true"></span>
       </button>
 
-      <aside class="settings-nav" aria-label="Settings sections">
-        <button type="button" class="settings-nav__item active">
+      <aside class="settings-nav" :aria-label="t('settings.sections')">
+        <button
+          type="button"
+          class="settings-nav__item"
+          :class="{ active: activeSection === 'general' }"
+          @click="setSection('general')"
+        >
           <svg
             class="settings-nav__icon"
             viewBox="0 0 24 24"
@@ -99,14 +228,32 @@ onBeforeUnmount(() => {
           </svg>
           <span>{{ t('settings.general') }}</span>
         </button>
+
+        <button
+          type="button"
+          class="settings-nav__item"
+          :class="{ active: activeSection === 'profile' }"
+          @click="setSection('profile')"
+        >
+          <svg
+            class="settings-nav__icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c1.8-4 4.5-6 8-6s6.2 2 8 6" />
+          </svg>
+          <span>{{ t('profile.title') }}</span>
+        </button>
       </aside>
 
       <main class="settings-content">
         <header class="settings-header">
-          <h1>{{ t('settings.general') }}</h1>
+          <h1>{{ activeSection === 'general' ? t('settings.general') : t('profile.title') }}</h1>
         </header>
 
-        <div class="settings-panel">
+        <div v-if="activeSection === 'general'" class="settings-panel">
           <section class="settings-row">
             <div class="settings-row__text">
               <h2>{{ t('settings.appearance') }}</h2>
@@ -166,6 +313,101 @@ onBeforeUnmount(() => {
               </button>
             </div>
           </section>
+        </div>
+
+        <div v-else class="settings-panel">
+          <section class="profile-summary">
+            <div class="profile-avatar">
+              <img v-if="avatarUrl" :src="avatarUrl" :alt="fullName || auth.User?.email || ''" />
+              <span v-else>{{ avatarLetter }}</span>
+            </div>
+            <div class="profile-summary__text">
+              <h2>{{ fullName || t('profile.title') }}</h2>
+              <p v-if="auth.User?.email">{{ auth.User.email }}</p>
+            </div>
+          </section>
+
+          <section class="settings-form">
+            <label class="settings-field">
+              <span>Email</span>
+              <input v-model.trim="form.email" type="email" autocomplete="email" />
+            </label>
+            <label class="settings-field">
+              <span>{{ t('profile.form.firstName') }}</span>
+              <input
+                v-model.trim="form.first_name"
+                type="text"
+                autocomplete="given-name"
+                :placeholder="t('profile.form.firstName')"
+              />
+            </label>
+            <label class="settings-field">
+              <span>{{ t('profile.form.lastName') }}</span>
+              <input
+                v-model.trim="form.last_name"
+                type="text"
+                autocomplete="family-name"
+                :placeholder="t('profile.form.lastName')"
+              />
+            </label>
+            <label class="settings-field">
+              <span>{{ t('profile.form.locale') }}</span>
+              <input
+                v-model.trim="form.locale_type"
+                type="text"
+                inputmode="text"
+                :placeholder="t('profile.form.locale')"
+              />
+            </label>
+            <label class="settings-field settings-field--wide">
+              <span>{{ t('profile.form.newPassword') }}</span>
+              <input
+                v-model="form.password"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="t('profile.form.keepBlank')"
+              />
+            </label>
+          </section>
+
+          <section class="profile-meta">
+            <div class="profile-meta__row">
+              <span>{{ t('profile.emailConfirmed') }}</span>
+              <strong :class="{ ok: auth.User?.email_confirmed, warn: !auth.User?.email_confirmed }">
+                {{ auth.User?.email_confirmed ? t('common.yes') : t('common.no') }}
+              </strong>
+            </div>
+            <div v-if="auth.User?.roles?.length" class="profile-meta__row">
+              <span>{{ t('profile.roles') }}</span>
+              <span class="profile-roles">
+                <span v-for="role in auth.User.roles" :key="role" class="profile-role">
+                  {{ role }}
+                </span>
+              </span>
+            </div>
+          </section>
+
+          <div class="settings-feedback">
+            <span v-if="successMsg" class="ok">{{ successMsg }}</span>
+            <span v-else-if="errorMsg" class="err">{{ errorMsg }}</span>
+          </div>
+
+          <footer class="settings-actions">
+            <button type="button" class="settings-button settings-button--danger" @click="handleLogout">
+              {{ t('profile.btn.logout') }}
+            </button>
+            <button type="button" class="settings-button" :disabled="saving" @click="resetFormFromUser">
+              {{ t('profile.btn.cancel') }}
+            </button>
+            <button
+              type="button"
+              class="settings-button settings-button--primary"
+              :disabled="saving"
+              @click="saveProfile"
+            >
+              {{ saving ? t('profile.saving') : t('profile.btn.save') }}
+            </button>
+          </footer>
         </div>
       </main>
     </section>
@@ -274,7 +516,7 @@ onBeforeUnmount(() => {
   font: inherit;
   font-weight: 600;
   text-align: left;
-  cursor: default;
+  cursor: pointer;
 }
 
 .settings-nav__item.active {
@@ -355,7 +597,8 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.settings-choice {
+.settings-choice,
+.settings-button {
   min-height: 38px;
   display: inline-flex;
   align-items: center;
@@ -382,20 +625,34 @@ onBeforeUnmount(() => {
 }
 
 .settings-choice:hover,
-.settings-choice:focus-visible {
+.settings-choice:focus-visible,
+.settings-button:hover,
+.settings-button:focus-visible {
   border-color: var(--color-primary-secondary);
   color: var(--color-text);
   outline: none;
 }
 
-.settings-choice.active {
+.settings-choice.active,
+.settings-button--primary {
   background: var(--color-primary-secondary);
   border-color: transparent;
   color: var(--color-primary-contrast);
 }
 
-.settings-choice:active {
+.settings-button--danger {
+  margin-right: auto;
+  color: var(--color-danger);
+}
+
+.settings-choice:active,
+.settings-button:active {
   transform: translateY(1px);
+}
+
+.settings-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
 }
 
 .theme-dot {
@@ -412,6 +669,160 @@ onBeforeUnmount(() => {
 
 .theme-dot--light {
   background: #ffffff;
+}
+
+.profile-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 46%);
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid var(--color-primary-secondary);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-summary__text {
+  min-width: 0;
+}
+
+.profile-summary__text h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.25;
+  color: var(--color-text);
+}
+
+.profile-summary__text p {
+  margin: 5px 0 0;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.settings-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 22px 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 46%);
+}
+
+.settings-field {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.settings-field--wide {
+  grid-column: 1 / -1;
+}
+
+.settings-field span {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.settings-field input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 8px 11px;
+  border: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 24%);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.settings-field input:focus {
+  border-color: var(--color-primary-secondary);
+  outline: none;
+}
+
+.profile-meta {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 46%);
+}
+
+.profile-meta__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.profile-meta__row strong {
+  color: var(--color-text);
+}
+
+.profile-meta__row .ok {
+  color: var(--color-success);
+}
+
+.profile-meta__row .warn {
+  color: var(--color-danger);
+}
+
+.profile-roles {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.profile-role {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-panel-elevated), var(--color-text) 7%);
+  color: var(--color-text);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.settings-feedback {
+  min-height: 22px;
+  padding-top: 14px;
+  font-size: 0.9rem;
+}
+
+.settings-feedback .ok {
+  color: var(--color-success);
+}
+
+.settings-feedback .err {
+  color: var(--color-danger);
+}
+
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 10px;
 }
 
 @media (max-width: 760px) {
@@ -431,22 +842,35 @@ onBeforeUnmount(() => {
   }
 
   .settings-nav {
+    flex-direction: row;
+    overflow-x: auto;
     padding: 60px 14px 12px;
     border-right: 0;
     border-bottom: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 34%);
+  }
+
+  .settings-nav__item {
+    width: auto;
+    flex: 0 0 auto;
   }
 
   .settings-content {
     padding: 22px 20px 28px;
   }
 
-  .settings-row {
+  .settings-row,
+  .settings-form {
     grid-template-columns: 1fr;
     gap: 14px;
   }
 
-  .settings-control {
+  .settings-control,
+  .settings-actions {
     justify-content: flex-start;
+  }
+
+  .settings-button--danger {
+    margin-right: 0;
   }
 }
 </style>

@@ -4,7 +4,6 @@ import { setAuthRedirectHandler } from '@/api/base/authRedirect'
 
 const Homeview = () => import('@/views/HomeView.vue')
 const AuthView = () => import('@/views/AuthView.vue')
-const ProfileView = () => import('@/views/ProfileView.vue')
 const SearchView = () => import('@/views/SearchView.vue')
 const PaperView = () => import('@/views/PaperView.vue')
 const PaperAddView = () => import('@/views/PaperAddView.vue')
@@ -19,7 +18,6 @@ const router = createRouter({
   routes: [
     { path: '/', component: Homeview, meta: { requiresAuth: true } },
     { path: '/auth', component: AuthView, meta: { public: true } },
-    { path: '/profile', component: ProfileView, meta: { requiresAuth: true } },
     { path: '/search/:uid', component: SearchView, meta: { requiresAuth: true } },
     {
       path: '/paper/my',

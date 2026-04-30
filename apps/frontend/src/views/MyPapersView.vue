@@ -1271,12 +1271,23 @@ async function handleDelete(id: string) {
   }
 }
 
+@media (max-width: 900px) {
+  .papers-area,
+  .papers-area.collapsed {
+    top: 70px;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    padding: var(--space-3);
+  }
+}
+
 @media (max-width: 768px) {
   .papers-area {
     top: 70px;
     right: 12px;
     bottom: 12px;
-    left: 270px;
+    left: 12px;
     padding: 0;
   }
 
@@ -1299,30 +1310,9 @@ async function handleDelete(id: string) {
 }
 
 @media (max-width: 700px) {
-  :deep(.left-tab) {
-    width: 60px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-
-  :deep(.left-tab .icon-text p) {
-    display: none;
-  }
-
-  :deep(.left-tab .header) {
-    justify-content: center;
-    flex-direction: column;
-    padding: 0 5px;
-    gap: 10px;
-  }
-
-  :deep(.up-tab) {
-    left: 80px;
-  }
-
   .papers-area,
   .papers-area.collapsed {
-    left: 72px;
+    left: 12px;
   }
 
   .papers-toolbar,
@@ -1348,9 +1338,9 @@ async function handleDelete(id: string) {
 @media (max-width: 520px) {
   .papers-area,
   .papers-area.collapsed {
-    left: 66px;
     right: 8px;
     bottom: 8px;
+    left: 8px;
   }
 
   .papers-shell {

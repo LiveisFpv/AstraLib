@@ -15,33 +15,45 @@ const router = useRouter()
 const settingStore = useSettingStore()
 const settingsModal = useSettingsModalStore()
 const chatStore = useChatStore()
-const { LeftTabHidden } = storeToRefs(settingStore)
+const { IsMobileLayout, LeftTabHidden, MobileSidebarOpen } = storeToRefs(settingStore)
 const leftTabHidden = LeftTabHidden
+const isMobileLayout = IsMobileLayout
+const mobileSidebarOpen = MobileSidebarOpen
 const canAuthorAccess = computed(() => authStore.canAuthorAccess)
 const historyCancelToken = ref(0)
+const showSidebarText = computed(() => isMobileLayout.value || !leftTabHidden.value)
 function toggleLeftTab() {
-  settingStore.HideLeftTab()
+  settingStore.ToggleSidebar()
+}
+function closeMobileSidebar() {
+  settingStore.CloseMobileSidebar()
 }
 function openSettings() {
   settingsModal.open('general')
+  closeMobileSidebar()
 }
 function RedirecttoHome() {
   router.push('/')
+  closeMobileSidebar()
 }
 function RedirecttoMyPapers() {
   router.push('/paper/my')
+  closeMobileSidebar()
 }
 function RedirecttoAdmin() {
   router.push('/admin')
+  closeMobileSidebar()
 }
 function RedirecttoModerator() {
   router.push('/moderator')
+  closeMobileSidebar()
 }
 
 function handleNewSearch() {
   historyCancelToken.value += 1
   chatStore.clearActiveChat()
   router.push('/')
+  closeMobileSidebar()
 }
 
 defineProps<{
@@ -49,8 +61,20 @@ defineProps<{
 }>()
 </script>
 <template>
-  <div class="left-tab" :class="{ hidden: leftTabHidden }">
-    <div class="header" :class="{ hidden: leftTabHidden }">
+  <div
+    v-if="mobileSidebarOpen"
+    class="left-tab-backdrop"
+    aria-hidden="true"
+    @click="closeMobileSidebar"
+  ></div>
+  <div
+    class="left-tab"
+    :class="{
+      hidden: leftTabHidden && !isMobileLayout,
+      'mobile-open': mobileSidebarOpen,
+    }"
+  >
+    <div class="header" :class="{ hidden: leftTabHidden && !isMobileLayout }">
       <button class="btn btn-icon" type="button" @click="RedirecttoHome" aria-label="Home">
         <img src="/src/assets/book-logo.svg" alt="L" class="logo brand-logo" />
       </button>
@@ -58,7 +82,7 @@ defineProps<{
         class="btn btn-icon sidebar-toggle"
         type="button"
         @click="toggleLeftTab"
-        :aria-expanded="!leftTabHidden"
+        :aria-expanded="isMobileLayout ? mobileSidebarOpen : !leftTabHidden"
         aria-label="Toggle sidebar"
       >
         <svg class="chevron" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
@@ -84,7 +108,7 @@ defineProps<{
       <button class="btn-menu btn" v-if="canAuthorAccess" @click="RedirecttoMyPapers">
         <div class="icon-text">
           <img src="/src/assets/papers-icon.svg" alt="|=|" class="logo" />
-          <p v-if="!leftTabHidden">{{ t('nav.myPapers') }}</p>
+          <p v-if="showSidebarText">{{ t('nav.myPapers') }}</p>
         </div>
       </button>
 
@@ -96,7 +120,7 @@ defineProps<{
       >
         <div class="icon-text">
           <img src="/src/assets/papers-icon.svg" alt="M" class="logo" />
-          <p v-if="!leftTabHidden">{{ t('nav.moderation') }}</p>
+          <p v-if="showSidebarText">{{ t('nav.moderation') }}</p>
         </div>
       </button>
 
@@ -108,29 +132,29 @@ defineProps<{
       >
         <div class="icon-text">
           <img src="/src/assets/manage-icon.svg" alt="A" class="logo" />
-          <p v-if="!leftTabHidden">{{ t('nav.adminPanel') }}</p>
+          <p v-if="showSidebarText">{{ t('nav.adminPanel') }}</p>
         </div>
       </button>
 
       <button class="btn-menu btn" @click="handleNewSearch">
         <div class="icon-text">
           <img src="/src/assets/plus-line-icon.svg" alt="" class="logo" />
-          <p v-if="!leftTabHidden">{{ t('nav.newSearch') }}</p>
+          <p v-if="showSidebarText">{{ t('nav.newSearch') }}</p>
         </div>
       </button>
       <button class="btn-menu btn">
         <div class="icon-text">
           <img src="/src/assets/search-icon.svg" alt="" class="logo" />
-          <p v-if="!leftTabHidden">{{ t('nav.searchChats') }}</p>
+          <p v-if="showSidebarText">{{ t('nav.searchChats') }}</p>
         </div>
       </button>
     </div>
-    <ChatHistory v-if="!leftTabHidden" :cancel-token="historyCancelToken" />
+    <ChatHistory v-if="showSidebarText" :cancel-token="historyCancelToken" />
     <div class="footer">
       <button class="btn-menu btn" @click="openSettings">
         <div class="icon-text">
           <img src="/src/assets/manage-icon.svg" alt="S" class="logo" />
-          <p v-if="!leftTabHidden">{{ t('nav.settings') }}</p>
+          <p v-if="showSidebarText">{{ t('nav.settings') }}</p>
         </div>
       </button>
     </div>
@@ -144,6 +168,10 @@ defineProps<{
   </div>
 </template>
 <style lang="css" scoped>
+.left-tab-backdrop {
+  display: none;
+}
+
 .left-tab {
   position: relative;
   display: flex;
@@ -292,5 +320,57 @@ defineProps<{
     color-mix(in oklab, var(--color-bg-secondary), transparent 28%) 62%,
     var(--color-bg-secondary) 100%
   );
+}
+
+@media (max-width: 900px) {
+  .left-tab-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 58;
+    display: block;
+    background: color-mix(in oklab, var(--color-bg), transparent 34%);
+    backdrop-filter: blur(2px);
+  }
+
+  .left-tab {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 60;
+    width: min(82vw, 300px);
+    max-width: 300px;
+    border-top-right-radius: 22px;
+    border-bottom-right-radius: 22px;
+    box-shadow: var(--shadow-elevated);
+    transform: translateX(-105%);
+    transition: transform var(--transition-slow) ease;
+  }
+
+  .left-tab.hidden {
+    width: min(82vw, 300px);
+    border-top-right-radius: 22px;
+    border-bottom-right-radius: 22px;
+  }
+
+  .left-tab.mobile-open {
+    transform: translateX(0);
+  }
+
+  .header,
+  .header.hidden {
+    justify-content: space-between;
+    flex-direction: row;
+    padding: 0 10px;
+    gap: 20px;
+  }
+
+  .left-tab.hidden .sidebar-toggle .chevron,
+  .sidebar-toggle .chevron {
+    transform: rotate(180deg);
+  }
+
+  .footer {
+    right: 5px;
+    left: 5px;
+  }
 }
 </style>

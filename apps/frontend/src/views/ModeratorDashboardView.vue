@@ -1506,6 +1506,17 @@ textarea {
   }
 }
 
+@media (max-width: 900px) {
+  .moderator-area,
+  .moderator-area.collapsed {
+    top: 70px;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    padding: var(--space-3);
+  }
+}
+
 @media (max-width: 768px) {
   .modal-backdrop {
     padding: 12px;
@@ -1524,7 +1535,7 @@ textarea {
     top: 70px;
     right: 12px;
     bottom: 12px;
-    left: 270px;
+    left: 12px;
     padding: 0;
   }
 
@@ -1550,30 +1561,9 @@ textarea {
 }
 
 @media (max-width: 700px) {
-  :deep(.left-tab) {
-    width: 60px;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-  }
-
-  :deep(.left-tab .icon-text p) {
-    display: none;
-  }
-
-  :deep(.left-tab .header) {
-    justify-content: center;
-    flex-direction: column;
-    padding: 0 5px;
-    gap: 10px;
-  }
-
-  :deep(.up-tab) {
-    left: 80px;
-  }
-
   .moderator-area,
   .moderator-area.collapsed {
-    left: 72px;
+    left: 12px;
   }
 
   .next-review-panel {
@@ -1593,9 +1583,9 @@ textarea {
 @media (max-width: 520px) {
   .moderator-area,
   .moderator-area.collapsed {
-    left: 66px;
     right: 8px;
     bottom: 8px;
+    left: 8px;
   }
 
   .moderator-shell {

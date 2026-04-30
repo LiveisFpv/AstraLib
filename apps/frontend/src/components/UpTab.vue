@@ -44,6 +44,10 @@ const avatarLetter = computed(() => {
 
 const { activeChatId } = storeToRefs(chatStore)
 
+function openMobileSidebar() {
+  useSetting.OpenMobileSidebar()
+}
+
 async function handleCopyActiveChat() {
   if (typeof window === 'undefined') return
   const chatId = activeChatId.value
@@ -67,6 +71,19 @@ async function handleCopyActiveChat() {
 </script>
 <template>
   <div class="up-tab" :class="{ collapsed: useSetting.LeftTabHidden }">
+    <button
+      class="btn btn-icon mobile-menu-button"
+      type="button"
+      :aria-expanded="useSetting.MobileSidebarOpen"
+      aria-label="Toggle sidebar"
+      @click="openMobileSidebar"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 7h16" />
+        <path d="M4 12h16" />
+        <path d="M4 17h16" />
+      </svg>
+    </button>
     <img class="logo brand-logo" src="/src/assets/text-logo.svg" alt="Astralib" />
     <div class="button-group">
       <button
@@ -111,6 +128,7 @@ async function handleCopyActiveChat() {
   top: 0;
   left: 310px;
   right: 0;
+  z-index: 50;
   height: 60px;
   background-color: var(--color-panel);
   border-bottom: 1px solid var(--color-border-soft);
@@ -122,6 +140,9 @@ async function handleCopyActiveChat() {
 }
 .up-tab.collapsed {
   left: 120px;
+}
+.mobile-menu-button {
+  display: none !important;
 }
 .btn.btn-icon {
   min-width: 50px;
@@ -147,6 +168,14 @@ async function handleCopyActiveChat() {
 .btn-icon .logo {
   width: 1.2em;
   height: 1.2em;
+}
+.btn-icon svg {
+  width: 1.2em;
+  height: 1.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 .brand-logo {
   width: auto;
@@ -190,5 +219,34 @@ async function handleCopyActiveChat() {
   margin: 0;
   line-height: 1.2;
   color: var(--color-text-primary);
+}
+
+@media (max-width: 900px) {
+  .up-tab,
+  .up-tab.collapsed {
+    left: 0;
+    right: 0;
+    border-left: 0;
+    border-bottom-left-radius: 0;
+    padding: 8px 12px;
+    gap:12px;
+  }
+
+  .mobile-menu-button {
+    display: inline-flex !important;
+    min-width: 40px;
+  }
+
+  .brand-logo {
+    height: 38px;
+  }
+
+  .button-group {
+    gap: 6px;
+  }
+
+  .btn.btn-icon {
+    min-width: 40px;
+  }
 }
 </style>

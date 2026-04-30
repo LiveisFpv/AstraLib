@@ -231,6 +231,13 @@ async function alignSelectedTurn() {
   logRef.value?.updateScrollbar()
 }
 
+async function refreshSelectedTurnLayout() {
+  await nextTick()
+  updateEndSpacerHeight()
+  await nextTick()
+  logRef.value?.updateScrollbar()
+}
+
 function observeLogViewport() {
   if (!layoutResizeObserver) return
   const viewport = getLogViewport()
@@ -514,7 +521,7 @@ watch(
 watch(
   previewAbstractExpanded,
   async () => {
-    await alignSelectedTurn()
+    await refreshSelectedTurnLayout()
   },
   { flush: 'post' },
 )
@@ -1158,6 +1165,7 @@ onBeforeUnmount(() => {
   color: var(--color-text);
 }
 .btn--primary-action {
+  text-align: center;
   border-color: transparent;
   background: var(--color-primary-secondary);
   color: var(--color-primary-contrast);
@@ -1260,6 +1268,17 @@ onBeforeUnmount(() => {
     min-height: 0;
     margin-bottom: var(--space-3);
     margin-top: var(--space-3);
+  }
+}
+
+@media (max-width: 900px) {
+  .chat,
+  .chat.collapsed {
+    top: 70px;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    padding: var(--space-3);
   }
 }
 

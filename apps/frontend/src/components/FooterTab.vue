@@ -25,6 +25,13 @@ const { t } = useI18n()
 .footer.collapsed {
   left: 120px;
 }
+
+@media (max-width: 900px) {
+  .footer,
+  .footer.collapsed {
+    display: none;
+  }
+}
 p {
   margin: 0;
 }

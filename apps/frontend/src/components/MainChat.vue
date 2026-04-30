@@ -39,6 +39,39 @@ const endSpacerHeight = ref(0)
 let layoutResizeObserver: ResizeObserver | null = null
 let observedLogViewport: HTMLElement | null = null
 
+const PREVIEW_MODAL_BREAKPOINT = 1200
+const isPreviewModalViewport = ref(false)
+const isPreviewModalOpen = ref(false)
+let previewMq: MediaQueryList | null = null
+
+const showInlinePreview = computed(() => !isPreviewModalViewport.value)
+const showPreviewModal = computed(
+  () => isPreviewModalViewport.value && isPreviewModalOpen.value && !!activePaper.value,
+)
+
+function syncPreviewViewport(matches: boolean) {
+  isPreviewModalViewport.value = matches
+
+  if (!matches) {
+    isPreviewModalOpen.value = false
+  }
+}
+
+function closePreviewModal() {
+  isPreviewModalOpen.value = false
+  previewAbstractExpanded.value = false
+}
+
+function handlePreviewMqChange(event: MediaQueryListEvent) {
+  syncPreviewViewport(event.matches)
+}
+
+function handleDocumentKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isPreviewModalOpen.value) {
+    closePreviewModal()
+  }
+}
+
 const messages = computed(() => chatStore.activeChat?.messages ?? [])
 const hasMessages = computed(() => messages.value.length > 0)
 const searchBlocked = computed(() =>
@@ -381,6 +414,12 @@ function selectPaper(messageId: string, paperKey: string) {
   selectedMessageId.value = messageId
   selectedPaperKey.value = paperKey
   previewAbstractExpanded.value = false
+
+  if (isPreviewModalViewport.value) {
+    isPreviewModalOpen.value = true
+    return
+  }
+
   nextTick(() => {
     logRef.value?.updateScrollbar()
   })
@@ -460,6 +499,18 @@ onMounted(() => {
     })
     nextTick(observeLogViewport)
   }
+  if (typeof window !== 'undefined') {
+    previewMq = window.matchMedia(`(max-width: ${PREVIEW_MODAL_BREAKPOINT}px)`)
+    syncPreviewViewport(previewMq.matches)
+
+    if (previewMq.addEventListener) {
+      previewMq.addEventListener('change', handlePreviewMqChange)
+    } else {
+      previewMq.addListener(handlePreviewMqChange)
+    }
+
+    window.addEventListener('keydown', handleDocumentKeydown)
+  }
 })
 
 watch(
@@ -529,6 +580,18 @@ watch(
 onBeforeUnmount(() => {
   layoutResizeObserver?.disconnect()
   observedLogViewport = null
+
+  if (previewMq) {
+    if (previewMq.removeEventListener) {
+      previewMq.removeEventListener('change', handlePreviewMqChange)
+    } else {
+      previewMq.removeListener(handlePreviewMqChange)
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleDocumentKeydown)
+  }
 })
 </script>
 <template>
@@ -609,7 +672,10 @@ onBeforeUnmount(() => {
                 </article>
               </div>
 
-              <aside v-if="message.id === selectedMessageId && activePaper" class="paper-preview">
+              <aside
+                v-if="showInlinePreview && message.id === selectedMessageId && activePaper"
+                class="paper-preview"
+              >
                 <header class="paper-preview__header">
                   <h3>{{ activePaper.title }}</h3>
                   <div v-if="activePaperMeta.length" class="paper-preview__meta">
@@ -694,6 +760,101 @@ onBeforeUnmount(() => {
         ></div>
       </CustomScrollbar>
     </div>
+
+    <Teleport to="body">
+      <transition name="preview-modal">
+        <div
+          v-if="showPreviewModal"
+          class="paper-preview-modal"
+          @click.self="closePreviewModal"
+        >
+          <div class="paper-preview-modal__backdrop"></div>
+
+          <div
+            class="paper-preview paper-preview--modal"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="activePaper?.title || 'Paper preview'"
+          >
+            <button
+              type="button"
+              class="paper-preview__close"
+              aria-label="Close preview"
+              @click="closePreviewModal"
+            >
+              ×
+            </button>
+
+            <template v-if="activePaper">
+              <header class="paper-preview__header">
+                <h3>{{ activePaper.title }}</h3>
+
+                <div v-if="activePaperMeta.length" class="paper-preview__meta">
+                  <span
+                    v-for="item in activePaperMeta"
+                    :key="item.label"
+                    class="paper-preview__meta-item"
+                  >
+                    <span class="paper-preview__meta-label">{{ item.label }}</span>
+                    <span class="paper-preview__meta-value">{{ item.value }}</span>
+                  </span>
+                </div>
+              </header>
+
+              <p
+                class="paper-preview__abstract"
+                :class="{ expanded: previewAbstractExpanded }"
+              >
+                {{ activePaper.abstract }}
+              </p>
+
+              <button
+                v-if="canTogglePreviewAbstract"
+                type="button"
+                class="paper-preview__toggle"
+                @click="previewAbstractExpanded = !previewAbstractExpanded"
+              >
+                {{
+                  previewAbstractExpanded
+                    ? t('chat.preview.showLess')
+                    : t('chat.preview.showMore')
+                }}
+              </button>
+
+              <div class="paper-preview__links">
+                <a
+                  v-if="activePaper.landingUrl"
+                  :href="activePaper.landingUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn btn--tiny btn--primary-action"
+                >
+                  {{ t('chat.link.openArticle') }}
+                </a>
+
+                <a
+                  v-if="activePaper.pdfUrl"
+                  :href="activePaper.pdfUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn btn--tiny"
+                >
+                  {{ t('chat.link.openPdf') }}
+                </a>
+
+                <button
+                  type="button"
+                  class="btn btn--tiny btn--secondary-action"
+                  @click="copyCitation"
+                >
+                  {{ t('chat.action.copyCitation') }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
 
     <form class="input-area" @submit.prevent="onSubmit">
       <span v-if="searchBlocked" class="blocked-note">{{ t('chat.blockedNote') }}</span>
@@ -1261,14 +1422,6 @@ onBeforeUnmount(() => {
   .results-grid {
     grid-template-columns: 1fr;
   }
-  .paper-preview {
-    position: relative;
-    top: auto;
-    max-height: none;
-    min-height: 0;
-    margin-bottom: var(--space-3);
-    margin-top: var(--space-3);
-  }
 }
 
 @media (max-width: 900px) {
@@ -1289,7 +1442,7 @@ onBeforeUnmount(() => {
   .results-grid {
     gap: var(--space-3);
   }
-  .paper-preview {
+  .paper-preview:not(.paper-preview--modal) {
     box-shadow: none;
   }
 }
@@ -1320,4 +1473,108 @@ onBeforeUnmount(() => {
     min-width: 0;
   }
 }
+
+.paper-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 3vw, 24px);
+}
+
+.paper-preview-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 10, 24, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.paper-preview--modal {
+  position: relative;
+  top: auto;
+  z-index: 1;
+  width: min(880px, 100%);
+  max-width: 100%;
+  min-height: 0;
+  max-height: min(84dvh, 920px);
+  margin: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-shadow: var(--shadow-elevated);
+}
+
+.paper-preview__close {
+  position: sticky;
+  top: 0;
+  margin-left: auto;
+  margin-bottom: var(--space-2);
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-panel), transparent 10%);
+  color: var(--color-text);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.paper-preview__close:hover,
+.paper-preview__close:focus-visible {
+  border-color: var(--color-primary-secondary);
+  box-shadow: var(--shadow-card);
+  outline: none;
+}
+
+.preview-modal-enter-active,
+.preview-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.preview-modal-enter-active .paper-preview--modal,
+.preview-modal-leave-active .paper-preview--modal {
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.preview-modal-enter-from,
+.preview-modal-leave-to {
+  opacity: 0;
+}
+
+.preview-modal-enter-from .paper-preview--modal,
+.preview-modal-leave-to .paper-preview--modal {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+}
+
+@media (max-width: 720px) {
+  .paper-preview--modal {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    padding: var(--space-3);
+    border-radius: 16px;
+  }
+
+  .paper-preview--modal .paper-preview__meta {
+    gap: var(--space-1);
+  }
+
+  .paper-preview--modal .paper-preview__links {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .paper-preview__close {
+    width: 34px;
+    height: 34px;
+    font-size: 1.1rem;
+  }
+}
+
 </style>

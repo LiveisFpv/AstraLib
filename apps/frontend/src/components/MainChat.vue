@@ -766,15 +766,16 @@ onBeforeUnmount(() => {
         <div
           v-if="showPreviewModal"
           class="paper-preview-modal"
-          @click.self="closePreviewModal"
+          @click="closePreviewModal"
         >
-          <div class="paper-preview-modal__backdrop"></div>
+          <div class="paper-preview-modal__backdrop" aria-hidden="true"></div>
 
           <div
             class="paper-preview paper-preview--modal"
             role="dialog"
             aria-modal="true"
             :aria-label="activePaper?.title || 'Paper preview'"
+            @click.stop
           >
             <button
               type="button"

@@ -21,17 +21,17 @@ const router = createRouter({
       path: '/paper/my',
       name: 'my-papers',
       component: MyPapersView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, roles: ['AUTHOR', 'MODERATOR', 'ADMIN'] },
     },
     {
       path: '/paper/add',
       redirect: { name: 'my-papers' },
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, roles: ['AUTHOR', 'MODERATOR', 'ADMIN'] },
     },
     {
       path: '/paper/:id/edit',
       redirect: { name: 'my-papers' },
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, roles: ['AUTHOR', 'MODERATOR', 'ADMIN'] },
     },
     { path: '/paper/:uid', component: PaperView },
     {

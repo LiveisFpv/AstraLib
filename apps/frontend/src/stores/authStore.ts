@@ -30,6 +30,9 @@ export const useAuthStore = defineStore('auth', () => {
   const isModerator = computed(() => roles.value.includes('MODERATOR'))
   const isUserRole = computed(() => roles.value.includes('USER'))
   const isWriterRole = computed(() => roles.value.includes('AUTHOR'))
+  const canAuthorAccess = computed(
+    () => isWriterRole.value || isModerator.value || isAdmin.value,
+  )
 
   function clearSession() {
     AccessToken.value = null
@@ -166,6 +169,7 @@ export const useAuthStore = defineStore('auth', () => {
     isModerator,
     isUserRole,
     isWriterRole,
+    canAuthorAccess,
     login,
     logout,
     signup,

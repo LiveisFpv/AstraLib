@@ -17,7 +17,7 @@ const settingsModal = useSettingsModalStore()
 const chatStore = useChatStore()
 const { LeftTabHidden } = storeToRefs(settingStore)
 const leftTabHidden = LeftTabHidden
-const canAuthorAccess = computed(() => !!authStore.User)
+const canAuthorAccess = computed(() => authStore.canAuthorAccess)
 const historyCancelToken = ref(0)
 function toggleLeftTab() {
   settingStore.HideLeftTab()

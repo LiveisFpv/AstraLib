@@ -1,124 +1,196 @@
 ﻿# AstraLib Frontend
 
-Фронтенд веб‑приложения на Vue 3 для интеллектуального поиска и управления публикациями со входом через SSO, ролями (USER/AUTHOR, MODERATOR, ADMIN), кабинетом автора и очередью модерации. Проект собран на Vite и TypeScript, использует Pinia, Vue Router и Axios.
+Frontend AstraLib - Vue 3 приложение для поиска научных публикаций, работы с чатами, авторскими материалами, модерацией и администрированием пользователей. Приложение использует внешний SSO для входа, OAuth redirect и получения ролей.
 
 ## Стек
 
-- Vue 3 + TypeScript, Vite 7
-- Pinia, Vue Router 4
-- Axios
-- Vitest + jsdom
-- ESLint 9 + Prettier
+- Vue 3, TypeScript, Vite 7;
+- Pinia для состояния;
+- Vue Router 4;
+- Axios для SSO API и ALib Gateway API;
+- Vitest + jsdom;
+- ESLint 9 + Prettier;
+- Nginx для production-раздачи статических файлов.
 
-## Быстрый старт (локально)
+## Основные возможности
 
-1. Требования: Node.js ^20.19.0 или >=22.12.0.
-2. Установите зависимости:
+- вход, регистрация, refresh/logout и OAuth через внешний SSO;
+- восстановление сессии при старте приложения;
+- защищенные маршруты и role-based guards;
+- семантический поиск через gateway `/api/chats/{chat_id}/history`;
+- история чатов пользователя;
+- просмотр публикаций;
+- кабинет автора с черновиками, отправкой на модерацию и статусами;
+- панель модератора для редактирования staged-данных и approve/reject;
+- панель администратора для управления пользователями через SSO;
+- локализация `ru/en`;
+- настройки темы и UI-состояний через Pinia.
+
+## Быстрый старт
+
+Требования:
+
+- Node.js `^20.19.0` или `>=22.12.0`;
+- npm;
+- запущенные gateway и SSO API либо корректные внешние URL.
+
+Установка:
 
 ```bash
 npm install
 ```
 
-3. Настройте переменные окружения (см. раздел «Переменные окружения») в `.env` или `.env.local`.
-4. Запуск в режиме разработки:
+Создайте `.env.local` или используйте переменные окружения:
+
+```env
+VITE_API_BASE_URL=http://localhost:5173
+VITE_FRONTEND_BASE_URL=http://localhost:5173
+VITE_SSO_CLIENT_ID_URL=https://id.example.com/api
+VITE_ALIB_API_URL=http://localhost/api
+```
+
+Запуск dev server:
 
 ```bash
 npm run dev
 ```
 
-Vite поднимется на http://localhost:5173 (по умолчанию).
+По умолчанию Vite доступен на `http://localhost:5173`.
 
-## Docker (dev/prod)
+## Docker
 
-### Dev
+### Изолированный frontend compose
+
+Dev-режим:
 
 ```bash
 docker compose --profile dev up --build
 ```
 
-Dev‑сервер доступен на http://localhost (порт 80).
-
-Полезно знать:
-
-- Изменения в `src/`, `public/`, `index.html` применяются сразу (HMR).
-- Изменения в `.env` или `vite.config.ts` требуют перезапуска контейнера.
-- Если изменили `package.json`/`package-lock.json`, выполните установку в контейнере:
-
-```bash
-docker compose --profile dev run --rm frontend-dev npm install
-```
-
-### Prod
+Production-режим:
 
 ```bash
 docker compose --profile prod up --build
 ```
 
-Nginx раздаёт статику на http://localhost (порт 80).
+Оба профиля публикуют приложение на `http://localhost` через порт `80`. Production-профиль также объявляет порт `443`, если он используется в nginx-конфигурации.
+
+### Корневой compose
+
+Из корня репозитория frontend запускается как часть общего стека:
+
+```bash
+docker compose --env-file .env up -d --build
+```
+
+Для разработки с HMR:
+
+```bash
+docker compose --env-file .env --profile dev up --build nginx-dev
+```
+
+В корневом production compose переменные `VITE_*` передаются как build args, поэтому после изменения `.env` нужно пересобрать образ frontend.
 
 ## Скрипты npm
 
-- `dev` — запуск dev‑сервера Vite
-- `build` — проверка типов и сборка (`vue-tsc` + `vite build`)
-- `preview` — предпросмотр собранного приложения
-- `test:unit` — юнит‑тесты (Vitest)
-- `type-check` — отдельная проверка типов (vue-tsc)
-- `lint` — ESLint с авто‑исправлением
-- `format` — Prettier форматирует `src/`
-
-## Архитектура и ключевые файлы
-
-- `src/main.ts` — инициализация приложения, Pinia и Router; установка темы и попытка авто‑аутентификации при старте.
-- `src/router/index.ts` — маршруты и глобальные гард‑перехватчики (auth, роли, редиректы).
-- `src/stores/` — Pinia‑хранилища (auth/chat/paper/settings/toast).
-- `src/api/` — слой API на Axios:
-  - `src/api/base/useBaseApi.ts` — клиент для SSO с перехватом 401 → refresh.
-  - `src/api/base/useAlibApi.ts` — клиент для ALib API.
-  - `src/api/useSSOApi.ts` — методы SSO.
-  - `src/api/useAlibApi.ts` — методы чатов, author submissions и moderation.
-- `src/views/` — страницы приложения.
-- `src/components/` — UI‑компоненты (панели, чат, тосты, диалоги).
-- `src/i18n.ts` — простая i18n (en/ru).
-- `src/assets/theme.css` — тема и CSS‑переменные.
+- `npm run dev` - Vite dev server;
+- `npm run build` - type-check и production build;
+- `npm run build-only` - только `vite build`;
+- `npm run preview` - предпросмотр `dist`;
+- `npm run test:unit` - Vitest;
+- `npm run type-check` - `vue-tsc --build`;
+- `npm run lint` - ESLint с автоисправлением;
+- `npm run format` - Prettier для `src/`.
 
 ## Переменные окружения
 
-Файл `.env` в репозитории содержит пример значений для локальной разработки:
+- `VITE_FRONTEND_BASE_URL` - публичный URL frontend. Используется для OAuth redirect URL.
+- `VITE_SSO_CLIENT_ID_URL` - базовый URL SSO API, обычно `https://id.example.com/api`.
+- `VITE_ALIB_API_URL` - базовый URL gateway API, обычно `/api` за nginx или `http://localhost:8080/api` при прямом локальном запуске gateway.
+- `VITE_API_BASE_URL` - общий базовый URL, зарезервирован для совместимости с конфигурацией проекта.
+
+Пример для production за nginx:
 
 ```env
-VITE_API_BASE_URL=http://localhost:5173
-VITE_FRONTEND_BASE_URL=http://localhost:5173
-VITE_SSO_CLIENT_ID_URL=https://domain/api
-VITE_ALIB_API_URL=http://domain/api
+VITE_FRONTEND_BASE_URL=https://example.com
+VITE_API_BASE_URL=https://example.com
+VITE_ALIB_API_URL=/api
+VITE_SSO_CLIENT_ID_URL=https://id.example.com/api
 ```
 
-Назначение:
+## Архитектура
 
-- `VITE_FRONTEND_BASE_URL` — базовый URL фронтенда (для redirect URL OAuth).
-- `VITE_SSO_CLIENT_ID_URL` — базовый URL SSO‑сервиса.
-- `VITE_ALIB_API_URL` — базовый URL ALib API.
-- `VITE_API_BASE_URL` — зарезервирован для общего базового URL.
+- `src/main.ts` - инициализация Vue, Pinia, router, темы и восстановления сессии;
+- `src/router/index.ts` - маршруты, auth guard, role guard и redirect logic;
+- `src/config.ts` - чтение `VITE_*`;
+- `src/api/base/useBaseApi.ts` - Axios-клиент SSO с refresh при `401`;
+- `src/api/base/useAlibApi.ts` - Axios-клиент gateway;
+- `src/api/useSSOApi.ts` - методы SSO: login, OAuth, profile, admin users;
+- `src/api/useAlibApi.ts` - методы gateway: chats, submissions, moderation;
+- `src/api/types.ts` - DTO frontend API;
+- `src/stores/` - Pinia stores: auth, chat, paper, settings, toast;
+- `src/views/` - страницы приложения;
+- `src/components/` - общие UI-компоненты;
+- `src/assets/theme.css` - CSS-переменные темы;
+- `src/i18n.ts` - простая локализация.
 
-## Сборка и деплой
+## Маршруты
 
-1. Соберите проект: `npm run build` — результат в `dist/`.
-2. Раздавайте как статический сайт (Nginx/Apache/облако).
-3. Для продакшна используйте `.env.production` и корректно настройте CORS/куки на бэкенде.
+- `/auth` - публичная страница входа;
+- `/` - главная страница, требует авторизацию;
+- `/search/:uid` - поиск и чат;
+- `/paper/:uid` - просмотр публикации;
+- `/paper/my` - кабинет автора, роли `AUTHOR`, `MODERATOR`, `ADMIN`;
+- `/admin` - панель администратора, роль `ADMIN`;
+- `/moderator` - панель модератора, роли `MODERATOR`, `ADMIN`.
 
-## Submission workflow
+`/paper/add` и `/paper/:id/edit` перенаправляют в кабинет автора.
 
-- Авторские страницы работают через `/api/submissions`:
-  - создание и обновление черновиков;
-  - отправка на модерацию;
-  - просмотр статусов `draft | pending | approved | rejected`;
-  - удаление только `draft` и `rejected`.
-- Модераторская панель работает через `/api/moderation/submissions`:
-  - загрузка очереди;
-  - редактирование staged-данных;
-  - комментарий модератора;
-  - `approve` / `reject`.
-- Источник ролей на клиенте — SSO `/auth/authenticate`.
+## API-интеграции
 
-## Лицензия
+### SSO
 
-Проект распространяется по лицензии Apache 2.0. См. файл `LICENSE`.
+Frontend вызывает SSO напрямую через `VITE_SSO_CLIENT_ID_URL`:
+
+- `POST /auth/login`;
+- `POST /auth/logout`;
+- `POST /auth/refresh`;
+- `GET /auth/authenticate`;
+- `POST /auth/create`;
+- `POST /auth/password-reset`;
+- `PUT /auth/update`;
+- `GET /oauth/{provider}`;
+- `GET /auth/admin/users`;
+- `PUT /auth/admin/users/{id}`.
+
+### ALib Gateway
+
+Frontend вызывает gateway через `VITE_ALIB_API_URL`:
+
+- `/chats`;
+- `/chats/{chat_id}/history`;
+- `/submissions`;
+- `/submissions/{submission_id}/submit`;
+- `/moderation/submissions`;
+- `/moderation/submissions/{submission_id}/moderate`.
+
+## Workflow авторских публикаций
+
+Автор может создать черновик, обновить его, отправить на модерацию и отслеживать статусы:
+
+- `draft`;
+- `pending`;
+- `approved`;
+- `rejected`.
+
+Удаление доступно только для `draft` и `rejected`. После approve gateway отправляет данные в semantic-service, где публикация попадает в ingestion queue.
+
+## Проверки
+
+```bash
+npm run type-check
+npm run test:unit
+npm run build
+```
+
+При изменении API-контрактов дополнительно проверьте сценарии входа, refresh token, поиск, создание submission и модерацию в браузере.

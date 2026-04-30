@@ -864,14 +864,38 @@ onBeforeUnmount(() => {
         :placeholder="t('chat.input.placeholder')"
         :disabled="loading || searchBlocked"
       />
-      <button class="btn btn-icon" type="submit" :disabled="loading || searchBlocked">
-        {{
+      <button
+        class="btn btn-icon input-area__submit"
+        type="submit"
+        :disabled="loading || searchBlocked"
+        :aria-label="
           searchBlocked
             ? t('chat.input.blocked')
             : loading
               ? t('chat.input.searching')
               : t('chat.input.search')
-        }}
+        "
+      >
+        <svg
+          class="input-area__submit-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            d="M10.75 5.25a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Zm-7 5.5a7 7 0 1 1 12.46 4.37l3.08 3.08a1 1 0 0 1-1.41 1.42l-3.09-3.09A7 7 0 0 1 3.75 10.75Z"
+            fill="currentColor"
+          />
+        </svg>
+        <span class="input-area__submit-label">
+          {{
+            searchBlocked
+              ? t('chat.input.blocked')
+              : loading
+                ? t('chat.input.searching')
+                : t('chat.input.search')
+          }}
+        </span>
       </button>
     </form>
   </div>
@@ -1380,15 +1404,45 @@ onBeforeUnmount(() => {
 .input-area {
   position: relative;
   z-index: 20;
+  isolation: isolate;
+  overflow: visible;
   border: 1px solid var(--color-border-soft);
   border-radius: 20px;
-  background-color: var(--color-panel-elevated);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-panel-elevated), var(--color-primary) 3%),
+      var(--color-panel-elevated)
+    );
   color: var(--color-text);
   display: flex;
   gap: var(--space-2);
-  padding: 10px;
+  padding: 8px;
   align-items: center;
-  box-shadow: var(--shadow-elevated);
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 -18px 42px rgba(0, 0, 0, 0.34),
+    0 -4px 18px color-mix(in oklab, var(--color-primary-secondary), transparent 88%),
+    var(--shadow-elevated);
+}
+
+.input-area::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: -34px;
+  height: 34px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklab, var(--color-panel), transparent 4%),
+      color-mix(in oklab, var(--color-panel), transparent 62%) 52%,
+      transparent
+    );
+  filter: blur(1px);
 }
 
 .input-area input {
@@ -1396,7 +1450,7 @@ onBeforeUnmount(() => {
   outline: none;
   background: transparent;
   flex: 1;
-  padding: 12px 14px;
+  padding: 11px 13px;
   font-size: 1rem;
   color: var(--color-text);
 }
@@ -1405,13 +1459,55 @@ onBeforeUnmount(() => {
   color: color-mix(in oklab, var(--color-muted), transparent 22%);
 }
 
-.input-area button {
-  min-width: 100px;
-  min-height: 40px;
+.input-area__submit {
+  flex: 0 0 auto;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
   border-color: transparent;
+  border-radius: 14px;
   background: var(--color-primary-secondary);
   color: var(--color-primary-contrast);
   font-weight: 700;
+  box-shadow:
+    0 10px 24px color-mix(in oklab, var(--color-primary-secondary), transparent 78%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.input-area__submit:hover:not(:disabled),
+.input-area__submit:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 14px 30px color-mix(in oklab, var(--color-primary-secondary), transparent 72%),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.input-area__submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
+.input-area__submit-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.input-area__submit-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .blocked-note {
   color: var(--color-danger);
@@ -1464,13 +1560,38 @@ onBeforeUnmount(() => {
     align-items: stretch;
   }
   .input-area {
-    flex-direction: column;
-    align-items: stretch;
-    padding: var(--space-2);
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 18px;
+    box-shadow:
+      0 -20px 44px rgba(0, 0, 0, 0.42),
+      0 -4px 18px color-mix(in oklab, var(--color-primary-secondary), transparent 86%),
+      var(--shadow-elevated);
   }
-  .input-area button {
-    width: 100%;
+  .input-area::before {
+    left: 8px;
+    right: 8px;
+    top: -40px;
+    height: 40px;
+  }
+  .input-area input {
     min-width: 0;
+    min-height: 42px;
+    padding: 9px 10px;
+    font-size: 0.95rem;
+  }
+  .input-area__submit {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    min-height: 42px;
+    border-radius: 13px;
+  }
+  .input-area__submit-icon {
+    width: 19px;
+    height: 19px;
   }
 }
 

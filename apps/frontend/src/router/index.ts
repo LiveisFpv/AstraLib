@@ -6,9 +6,7 @@ const Homeview = () => import('@/views/HomeView.vue')
 const AuthView = () => import('@/views/AuthView.vue')
 const SearchView = () => import('@/views/SearchView.vue')
 const PaperView = () => import('@/views/PaperView.vue')
-const PaperAddView = () => import('@/views/PaperAddView.vue')
 const MyPapersView = () => import('@/views/MyPapersView.vue')
-const PaperEditView = () => import('@/views/PaperEditView.vue')
 const NotFoundView = () => import('@/views/NotFoundView.vue')
 const AdminDashboardView = () => import('@/views/AdminDashboardView.vue')
 const ModeratorDashboardView = () => import('@/views/ModeratorDashboardView.vue')
@@ -26,17 +24,16 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/paper/add',
+      redirect: { name: 'my-papers' },
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/paper/:id/edit',
-      name: 'paper-edit',
-      component: PaperEditView,
+      redirect: { name: 'my-papers' },
       meta: { requiresAuth: true },
     },
     { path: '/paper/:uid', component: PaperView },
-    {
-      path: '/paper/add',
-      component: PaperAddView,
-      meta: { requiresAuth: true },
-    },
     {
       path: '/admin',
       component: AdminDashboardView,

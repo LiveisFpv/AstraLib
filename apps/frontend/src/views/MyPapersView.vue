@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import UpTab from '@/components/UpTab.vue'
 import LeftTab from '@/components/LeftTab.vue'
+import PaperAddView from '@/views/PaperAddView.vue'
+import PaperEditView from '@/views/PaperEditView.vue'
 import { usePaperStore, type PaperDetail } from '@/stores/paperStore'
 import { useToastStore } from '@/stores/toastStore'
 import { locale, useI18n } from '@/i18n'
@@ -28,6 +30,10 @@ const selectedFilter = ref<AuthorFilter>('all')
 const searchQuery = ref('')
 const loadError = ref('')
 const busyId = ref<string | null>(null)
+const isAddModalOpen = ref(false)
+const isImportMode = ref(false)
+const isEditModalOpen = ref(false)
+const editingPaperId = ref<string | null>(null)
 
 const filterOptions: Array<{ value: AuthorFilter; labelKey: string }> = [
   { value: 'all', labelKey: 'papers.filter.allShort' },
@@ -277,15 +283,18 @@ async function loadPapers() {
 }
 
 function goToEdit(id: string) {
-  router.push({ name: 'paper-edit', params: { id } })
+  editingPaperId.value = id
+  isEditModalOpen.value = true
 }
 
 function goToAdd() {
-  router.push({ path: '/paper/add' })
+  isImportMode.value = false
+  isAddModalOpen.value = true
 }
 
 function goToImport() {
-  router.push({ path: '/paper/add', query: { import: 'identifier' } })
+  isImportMode.value = true
+  isAddModalOpen.value = true
 }
 
 function openPublic(paperId: number) {
@@ -323,7 +332,7 @@ async function duplicatePaper(paper: PaperDetail) {
       related_paper: paper.related_paper,
       referenced_paper: paper.referenced_paper,
     })
-    await router.push({ name: 'paper-edit', params: { id: duplicate.id } })
+    goToEdit(duplicate.id)
   } catch (e: any) {
     loadError.value = e?.message || t('papers.errDuplicate')
   } finally {
@@ -333,13 +342,22 @@ async function duplicatePaper(paper: PaperDetail) {
 
 async function copySubmissionLink(paper: PaperDetail) {
   try {
-    const href = router.resolve({ name: 'paper-edit', params: { id: paper.id } }).href
+    const href = router.resolve({ name: 'my-papers' }).href
     const url = new URL(href, window.location.origin).toString()
     await navigator.clipboard.writeText(url)
     toastStore.show(t('papers.copyOk'), { variant: 'success' })
   } catch {
     toastStore.show(t('papers.copyFail'), { variant: 'error' })
   }
+}
+
+function handleSubmissionChanged() {
+  loadError.value = ''
+}
+
+function closeEditModal(value: boolean) {
+  isEditModalOpen.value = value
+  if (!value) editingPaperId.value = null
 }
 
 async function handleDelete(id: string) {
@@ -581,6 +599,21 @@ async function handleDelete(id: string) {
       </footer>
     </div>
   </main>
+
+  <PaperAddView
+    v-model:open="isAddModalOpen"
+    :import-mode="isImportMode"
+    @saved="handleSubmissionChanged"
+    @submitted="handleSubmissionChanged"
+  />
+  <PaperEditView
+    :open="isEditModalOpen"
+    :paper-id="editingPaperId"
+    @update:open="closeEditModal"
+    @saved="handleSubmissionChanged"
+    @submitted="handleSubmissionChanged"
+    @deleted="handleSubmissionChanged"
+  />
 </template>
 
 <style scoped>

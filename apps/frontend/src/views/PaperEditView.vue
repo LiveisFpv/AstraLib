@@ -1,21 +1,26 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import UpTab from '@/components/UpTab.vue'
-import LeftTab from '@/components/LeftTab.vue'
 import { usePaperStore, type PaperPayload, type PaperStatus } from '@/stores/paperStore'
 import { locale, useI18n } from '@/i18n'
-import { useLayoutInset } from '@/composables/useLayoutInset'
 
 type Related = { id: string }
 type Referenced = { id: string }
 
-const route = useRoute()
-const router = useRouter()
+const props = defineProps<{
+  open: boolean
+  paperId: string | null
+}>()
+
+const emit = defineEmits<{
+  'update:open': [value: boolean]
+  saved: [id: string]
+  submitted: [id: string]
+  deleted: [id: string]
+}>()
+
 const paperStore = usePaperStore()
-const { LeftTabHidden: leftHidden, layoutInset } = useLayoutInset()
 const { t } = useI18n()
-const currentId = computed(() => String(route.params.id || ''))
+const currentId = computed(() => props.paperId || '')
 const loading = ref(false)
 const saving = ref(false)
 const successMsg = ref('')
@@ -29,6 +34,7 @@ const statusKeyMap: Record<PaperStatus, string> = {
 }
 
 const form = reactive({
+  source_identifier: '',
   title: '',
   abstract: '',
   year: undefined as number | undefined,
@@ -46,15 +52,17 @@ const statusLabel = computed(() => {
 })
 
 watch(
-  currentId,
+  () => [props.open, currentId.value] as const,
   async (value) => {
-    if (!value) return
+    const [open, id] = value
+    if (!open || !id) return
     loading.value = true
     errorMsg.value = ''
+    successMsg.value = ''
     try {
-      await paperStore.fetchSubmission(value)
+      await paperStore.fetchSubmission(id)
     } catch (e: any) {
-      if (!paperStore.getById(value)) {
+      if (!paperStore.getById(id)) {
         errorMsg.value = e?.message || t('papers.errNotFound')
       }
     } finally {
@@ -65,19 +73,10 @@ watch(
 )
 
 watch(
-  () => route.query.saved,
-  async (value) => {
-    if (value !== 'draft') return
-    successMsg.value = t('papers.okSaved')
-    await router.replace({ name: 'paper-edit', params: { id: currentId.value } })
-  },
-  { immediate: true },
-)
-
-watch(
   () => paper.value,
   (value) => {
-    if (!value) return
+    if (!props.open || !value) return
+    form.source_identifier = value.source_identifier || ''
     form.title = value.title
     form.abstract = value.abstract || ''
     form.year = value.year
@@ -133,6 +132,7 @@ function removeReferenced(index: number) {
 function buildPayload(): PaperPayload {
   return {
     id: paper.value?.id,
+    source_identifier: form.source_identifier.trim() || undefined,
     title: form.title.trim() || undefined,
     abstract: form.abstract.trim() || undefined,
     year: form.year,
@@ -160,6 +160,7 @@ async function saveDraft() {
   try {
     saving.value = true
     await paperStore.saveDraft(buildPayload())
+    emit('saved', paper.value.id)
     successMsg.value = t('papers.okSaved')
   } catch (e: any) {
     errorMsg.value = e?.message || t('papers.errSave')
@@ -186,7 +187,9 @@ async function submitForReview() {
   try {
     saving.value = true
     await paperStore.submitPaper(buildPayload())
+    emit('submitted', paper.value.id)
     successMsg.value = t('paperAdd.okSubmitted')
+    emit('update:open', false)
   } catch (e: any) {
     errorMsg.value = e?.message || t('paperAdd.errSubmit')
   } finally {
@@ -201,8 +204,10 @@ async function deleteSubmission() {
   }
   try {
     saving.value = true
+    const deletedId = paper.value.id
     await paperStore.deletePaper(paper.value.id)
-    await router.push({ name: 'my-papers' })
+    emit('deleted', deletedId)
+    emit('update:open', false)
   } catch (e: any) {
     errorMsg.value = e?.message || t('papers.errDelete')
   } finally {
@@ -211,17 +216,17 @@ async function deleteSubmission() {
 }
 
 function goBack() {
-  router.back()
+  if (saving.value) return
+  emit('update:open', false)
 }
 </script>
 
 <template>
-  <UpTab :show-menu="false" :show-upload="false" />
-  <LeftTab />
-  <div class="area" :class="{ collapsed: leftHidden }" :style="{ '--layout-inset': layoutInset }">
-    <div class="container">
+  <Teleport to="body">
+    <div v-if="open" class="modal-backdrop" @click.self="goBack">
+      <section class="paper-modal" role="dialog" aria-modal="true" :aria-label="t('paperEdit.title')">
       <template v-if="paper">
-        <header class="head">
+        <header class="modal-head">
           <div>
             <h2>{{ t('paperEdit.title') }}</h2>
             <p class="muted">
@@ -239,10 +244,24 @@ function goBack() {
             <strong>{{ t('papers.moderatorComment') }}</strong>
             <p>{{ paper.moderatorComment }}</p>
           </aside>
+          <button class="icon-button" type="button" :aria-label="t('common.cancel')" @click="goBack">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
         </header>
 
         <form class="form" @submit.prevent="submitForReview">
           <fieldset :disabled="!canEdit || saving">
+            <label>
+              <span>{{ t('papers.action.importIdentifier') }}</span>
+              <input
+                type="text"
+                v-model="form.source_identifier"
+                :placeholder="t('paperAdd.idPlaceholder')"
+              />
+            </label>
             <label>
               <span>{{ t('paperAdd.title') }}</span>
               <input type="text" v-model="form.title" />
@@ -335,36 +354,69 @@ function goBack() {
           {{ t('papers.action.back') }}
         </button>
       </section>
+      </section>
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style scoped>
-.area {
+.modal-backdrop {
   position: fixed;
-  inset: var(--layout-inset, 60px 20px 20px 310px);
-  transition: all var(--transition-slow) ease;
-  overflow-y: auto;
-  padding: var(--space-4) var(--space-4) var(--space-5);
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in oklab, var(--color-bg), transparent 18%);
+  backdrop-filter: blur(10px);
 }
-.area.collapsed {
-  --layout-inset: 60px 20px 20px 80px;
-}
-.container {
+.paper-modal {
+  width: min(920px, 100%);
+  max-height: min(840px, calc(100vh - 48px));
   max-width: 900px;
-  margin: 0 auto;
   display: grid;
   gap: var(--space-4);
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-panel-elevated), var(--color-surface) 3%),
+      color-mix(in oklab, var(--color-panel), var(--color-bg) 5%)
+    );
+  box-shadow: var(--shadow-modal, 0 24px 70px rgba(0, 0, 0, 0.42));
 }
-.head {
+.modal-head {
   display: flex;
   gap: var(--space-4);
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
 }
-.head h2 {
+.modal-head h2 {
   margin: 0;
+}
+.icon-button {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 999px;
+  background: var(--color-panel-elevated);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.icon-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 .btn.link {
   background: none;
@@ -437,6 +489,7 @@ label span {
 input[type='text'],
 input[type='number'],
 textarea {
+  box-sizing: border-box;
   width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--color-border);
@@ -507,24 +560,20 @@ textarea {
   background: var(--color-bg-secondary);
 }
 @media (max-width: 960px) {
-  .area {
-    --layout-inset: 60px 16px 16px 120px;
-  }
-  .area.collapsed {
-    --layout-inset: 60px 16px 16px 24px;
-  }
   .side-info {
     width: 100%;
     max-width: none;
   }
 }
 @media (max-width: 768px) {
-  .area {
-    position: static;
-    margin: calc(60px + var(--space-3)) var(--space-3) var(--space-4);
-    padding: 0;
+  .modal-backdrop {
+    padding: 12px;
   }
-  .head {
+  .paper-modal {
+    max-height: calc(100vh - 24px);
+    padding: 16px;
+  }
+  .modal-head {
     flex-direction: column;
   }
   .actions {
@@ -534,8 +583,11 @@ textarea {
   .grid {
     grid-template-columns: 1fr;
   }
-  .container {
-    padding: var(--space-3) var(--space-2) var(--space-4);
+  .item {
+    grid-template-columns: 1fr;
+  }
+  .actions .btn {
+    flex: 1 1 160px;
   }
 }
 </style>

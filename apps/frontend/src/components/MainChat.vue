@@ -25,7 +25,10 @@ const { t } = useI18n()
 const query = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
+const statusVariant = ref<'error' | 'notice'>('error')
 const isChatsLoading = ref(false)
+const isChatHistoryLoading = ref(false)
+const historyErrorMsg = ref('')
 
 const selectedMessageId = ref<string | null>(null)
 const selectedPaperKey = ref<string | null>(null)
@@ -41,6 +44,77 @@ const hasMessages = computed(() => messages.value.length > 0)
 const searchBlocked = computed(() =>
   Boolean((auth as any).isAdmin?.value || (auth as any).isModerator?.value),
 )
+
+const statusState = computed(() => {
+  if (loading.value) {
+    return {
+      variant: 'loading',
+      title: t('chat.status.searching'),
+      description: t('chat.status.searchingDetail'),
+    }
+  }
+  if (errorMsg.value) {
+    return {
+      variant: statusVariant.value,
+      title:
+        statusVariant.value === 'notice'
+          ? t('chat.status.noResults')
+          : t('chat.status.searchError'),
+      description: errorMsg.value,
+    }
+  }
+  if (isChatHistoryLoading.value && hasMessages.value) {
+    return {
+      variant: 'loading',
+      title: t('chat.status.historyLoading'),
+      description: t('chat.status.historyLoadingDetail'),
+    }
+  }
+  if (historyErrorMsg.value) {
+    return {
+      variant: 'error',
+      title: t('chat.status.historyError'),
+      description: historyErrorMsg.value,
+    }
+  }
+  if (isChatsLoading.value && hasMessages.value) {
+    return {
+      variant: 'loading',
+      title: t('chat.status.chatsLoading'),
+      description: t('chat.status.chatsLoadingDetail'),
+    }
+  }
+  return null
+})
+
+const emptyState = computed(() => {
+  if (isChatHistoryLoading.value) {
+    return {
+      variant: 'loading',
+      title: t('chat.status.historyLoading'),
+      description: t('chat.status.historyLoadingDetail'),
+    }
+  }
+  if (isChatsLoading.value) {
+    return {
+      variant: 'loading',
+      title: t('chat.status.chatsLoading'),
+      description: t('chat.status.chatsLoadingDetail'),
+    }
+  }
+  if (historyErrorMsg.value) {
+    return {
+      variant: 'error',
+      title: t('chat.status.historyError'),
+      description: historyErrorMsg.value,
+    }
+  }
+  return {
+    variant: 'idle',
+    title: t('chat.emptyTitle'),
+    description: t('chat.empty'),
+  }
+})
 
 const activeMessage = computed(() => {
   if (!selectedMessageId.value) return null
@@ -60,7 +134,7 @@ const activePaperMeta = computed(() => {
   if (paper.authors.length) {
     items.push({ label: t('chat.preview.authors'), value: paper.authors.join(', ') })
   }
-  if (paper.year) items.push({ label: t('chat.preview.year'), value: paper.year })
+  // if (paper.year) items.push({ label: t('chat.preview.year'), value: paper.year })
   if (paper.sourceName) items.push({ label: t('chat.preview.source'), value: paper.sourceName })
   if (paper.institutions.length) {
     items.push({
@@ -68,9 +142,9 @@ const activePaperMeta = computed(() => {
       value: paper.institutions.slice(0, 3).join(', '),
     })
   }
-  if (typeof paper.citedByCount === 'number' && paper.citedByCount > 0) {
-    items.push({ label: t('chat.preview.citations'), value: paper.citedByCount })
-  }
+  // if (typeof paper.citedByCount === 'number' && paper.citedByCount > 0) {
+  //   items.push({ label: t('chat.preview.citations'), value: paper.citedByCount })
+  // }
   if (paper.referencedWorks.length) {
     items.push({ label: t('chat.preview.references'), value: paper.referencedWorks.length })
   }
@@ -255,6 +329,7 @@ async function ensureActiveChat(searchText: string) {
 async function runSearch(text?: string) {
   const searchText = (text ?? query.value).trim()
   errorMsg.value = ''
+  statusVariant.value = 'error'
   if (searchBlocked.value) {
     errorMsg.value = t('chat.blockedNote')
     return
@@ -276,16 +351,19 @@ async function runSearch(text?: string) {
       throw new Error(t('chat.error.failed'))
     }
     if (!mapped.length) {
+      statusVariant.value = 'notice'
       errorMsg.value = t('chat.error.noResults')
     }
     selectedMessageId.value = message.id
     selectedPaperKey.value = mapped[0]?.key ?? null
     await alignSelectedTurn()
   } catch (error: any) {
+    statusVariant.value = 'error'
     errorMsg.value = error?.message || t('chat.error.failed')
   } finally {
     loading.value = false
   }
+  query.value=""
 }
 
 function onSubmit() {
@@ -296,7 +374,9 @@ function selectPaper(messageId: string, paperKey: string) {
   selectedMessageId.value = messageId
   selectedPaperKey.value = paperKey
   previewAbstractExpanded.value = false
-  void alignSelectedTurn()
+  nextTick(() => {
+    logRef.value?.updateScrollbar()
+  })
 }
 
 function buildCitation(paper: PaperCard) {
@@ -332,6 +412,8 @@ async function loadChatHistory(chatId: number) {
   const chat = chatStore.activeChat
   if (!chat || chat.historyLoaded) return
   const reqId = ++historyRequestId
+  isChatHistoryLoading.value = true
+  historyErrorMsg.value = ''
   try {
     const response = await AlibApi.get_chat_history(chatId)
     if (reqId !== historyRequestId) return
@@ -351,7 +433,13 @@ async function loadChatHistory(chatId: number) {
     })
     chatStore.setMessages(chatId, mappedMessages)
   } catch (error) {
+    if (reqId !== historyRequestId) return
+    historyErrorMsg.value = t('chat.error.historyFailed')
     chatStore.markHistoryLoaded(chatId)
+  } finally {
+    if (reqId === historyRequestId) {
+      isChatHistoryLoading.value = false
+    }
   }
 }
 
@@ -394,8 +482,10 @@ watch(
       selectedMessageId.value = null
       selectedPaperKey.value = null
       previewAbstractExpanded.value = false
+      historyErrorMsg.value = ''
       return
     }
+    historyErrorMsg.value = ''
     await loadChatHistory(chatId)
     const msgs = chatStore.activeChat?.messages ?? []
     if (msgs.length) {
@@ -437,9 +527,12 @@ onBeforeUnmount(() => {
 <template>
   <div class="chat" :class="{ collapsed: useSetting.LeftTabHidden }">
     <div class="main-chat" :class="{ collapsed: useSetting.LeftTabHidden }">
-      <div class="status" v-if="loading || errorMsg">
-        <span v-if="loading" class="status__loading">{{ t('chat.status.searching') }}</span>
-        <span v-else class="status__error">{{ errorMsg }}</span>
+      <div v-if="statusState" class="status" :class="`status--${statusState.variant}`">
+        <span class="status__spinner" aria-hidden="true"></span>
+        <div class="status__text">
+          <strong>{{ statusState.title }}</strong>
+          <span>{{ statusState.description }}</span>
+        </div>
       </div>
 
       <CustomScrollbar
@@ -487,7 +580,7 @@ onBeforeUnmount(() => {
                   <header class="paper-card__header">
                     <span v-if="paper.year" class="paper-card__year">{{ paper.year }}</span>
                     <span
-                      v-if="typeof paper.score === 'number'"
+                      v-if="useSetting.ShowRelevanceScore && typeof paper.score === 'number'"
                       class="paper-card__score"
                       :data-tooltip="t('paper.scoreTooltip')"
                       :aria-label="`${formatScore(paper.score)}. ${t('paper.scoreTooltip')}`"
@@ -574,8 +667,16 @@ onBeforeUnmount(() => {
             <p v-else class="no-results">{{ t('chat.noResultsForTurn') }}</p>
           </section>
         </template>
-        <div v-else class="empty-state">
-          <p>{{ t('chat.empty') }}</p>
+        <div v-else class="empty-state" :class="`empty-state--${emptyState.variant}`">
+          <span
+            v-if="emptyState.variant === 'loading'"
+            class="empty-state__spinner"
+            aria-hidden="true"
+          ></span>
+          <div>
+            <h2>{{ emptyState.title }}</h2>
+            <p>{{ emptyState.description }}</p>
+          </div>
         </div>
         <div
           v-if="hasMessages"
@@ -698,13 +799,87 @@ onBeforeUnmount(() => {
 }
 
 .status {
-  font-size: 0.95rem;
-  min-height: 1.4rem;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 13px;
+  border: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 24%);
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--color-panel-elevated), transparent 14%);
+  font-size: 0.92rem;
 }
-.status__loading {
+
+.status--error {
+  border-color: color-mix(in oklab, var(--color-danger), transparent 58%);
+  background: color-mix(in oklab, var(--color-danger), transparent 92%);
+}
+
+.status--notice {
+  border-color: color-mix(in oklab, var(--color-primary-secondary), transparent 56%);
+  background: color-mix(in oklab, var(--color-primary-secondary), transparent 92%);
+}
+
+.status__spinner,
+.empty-state__spinner {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 2px solid color-mix(in oklab, var(--color-primary-secondary), transparent 70%);
+  border-top-color: var(--color-primary-secondary);
+  border-radius: 50%;
+  animation: chat-spin 0.8s linear infinite;
+}
+
+.status--error .status__spinner {
+  border-color: var(--color-danger);
+  animation: none;
+}
+
+.status--notice .status__spinner {
+  border-color: var(--color-primary-secondary);
+  animation: none;
+}
+
+.status--notice .status__spinner::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  margin: 4px;
+  border-radius: 50%;
+  background: var(--color-primary-secondary);
+}
+
+.status--error .status__spinner::before {
+  content: '!';
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-danger);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.status__text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.status__text strong {
+  color: var(--color-text);
+  line-height: 1.25;
+}
+
+.status__text span {
   color: var(--color-muted);
+  line-height: 1.35;
 }
-.status__error {
+
+.status--error .status__text span {
   color: var(--color-danger);
 }
 
@@ -997,15 +1172,40 @@ onBeforeUnmount(() => {
   color: var(--color-muted);
   min-height: 45vh;
   display: grid;
+  gap: 14px;
   place-items: center;
   padding: var(--space-4) 0;
   border: 1px dashed var(--color-border-soft);
   border-radius: 18px;
   background: color-mix(in oklab, var(--color-panel-elevated), transparent 28%);
 }
+
+.empty-state--error {
+  border-color: color-mix(in oklab, var(--color-danger), transparent 52%);
+  background: color-mix(in oklab, var(--color-danger), transparent 94%);
+}
+
+.empty-state h2 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.05rem;
+  line-height: 1.3;
+}
+
 .empty-state p {
   color: inherit;
-  margin: 0;
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+
+.empty-state--error p {
+  color: var(--color-danger);
+}
+
+@keyframes chat-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .input-area {

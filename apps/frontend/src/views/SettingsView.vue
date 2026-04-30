@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
+import { useSettingStore } from '@/stores/settingStore'
 import { useI18n } from '@/i18n'
 import type { SettingsSection } from '@/stores/settingsModalStore'
 import type { UserUpdateRequest } from '@/api/types'
@@ -24,6 +25,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const auth = useAuthStore()
+const appSettings = useSettingStore()
 const { locale, setLocale, t } = useI18n()
 const activeSection = ref<SettingsSection>(props.initialSection)
 const theme = ref<Theme>('dark')
@@ -311,6 +313,41 @@ onBeforeUnmount(() => {
                 RU
                 <span>{{ t('settings.langRussian') }}</span>
               </button>
+            </div>
+          </section>
+
+          <section class="settings-row">
+            <div class="settings-row__text">
+              <h2>{{ t('settings.resultsPerSearch') }}</h2>
+              <p>{{ t('settings.resultsPerSearchDisabled') }}</p>
+            </div>
+            <div class="settings-control" :aria-label="t('settings.resultsPerSearch')">
+              <div class="settings-slider settings-slider--disabled" aria-disabled="true">
+                <span class="settings-slider__track" aria-hidden="true">
+                  <span class="settings-slider__fill"></span>
+                  <span class="settings-slider__thumb"></span>
+                  <span class="settings-slider__min">2</span>
+                  <span class="settings-slider__value">5</span>
+                  <span class="settings-slider__max">9</span>
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-row">
+            <div class="settings-row__text">
+              <h2>{{ t('settings.showRelevanceScore') }}</h2>
+              <p>{{ t('paper.scoreTooltip') }}</p>
+            </div>
+            <div class="settings-control">
+              <label class="settings-toggle">
+                <input
+                  v-model="appSettings.ShowRelevanceScore"
+                  type="checkbox"
+                  :aria-label="t('settings.showRelevanceScore')"
+                />
+                <span aria-hidden="true"></span>
+              </label>
             </div>
           </section>
         </div>
@@ -653,6 +690,142 @@ onBeforeUnmount(() => {
 .settings-button:disabled {
   cursor: progress;
   opacity: 0.7;
+}
+
+.settings-toggle {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.settings-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-toggle span {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px solid color-mix(in oklab, var(--color-border-soft), transparent 28%);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-panel-elevated), transparent 18%);
+  transition:
+    background var(--transition-fast) ease,
+    border-color var(--transition-fast) ease;
+}
+
+.settings-toggle span::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  transition:
+    background var(--transition-fast) ease,
+    transform var(--transition-fast) ease;
+}
+
+.settings-toggle input:checked + span {
+  border-color: transparent;
+  background: var(--color-primary-secondary);
+}
+
+.settings-toggle input:checked + span::after {
+  background: var(--color-primary-contrast);
+  transform: translateX(20px);
+}
+
+.settings-toggle input:focus-visible + span {
+  outline: 2px solid var(--color-primary-secondary);
+  outline-offset: 2px;
+}
+
+.settings-slider {
+  width: min(280px, 44vw);
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.settings-slider__track {
+  position: relative;
+  display: block;
+  height: 44px;
+}
+
+.settings-slider__track::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-panel-elevated), var(--color-text) 8%);
+}
+
+.settings-slider__fill {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  width: calc((5 - 2) / (9 - 2) * 100%);
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-primary-secondary);
+}
+
+.settings-slider__thumb {
+  position: absolute;
+  top: 2px;
+  left: calc((5 - 2) / (9 - 2) * 100%);
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--color-primary-contrast);
+  border-radius: 50%;
+  background: var(--color-primary-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+  transform: translateX(-50%);
+}
+
+.settings-slider__min,
+.settings-slider__max,
+.settings-slider__value {
+  position: absolute;
+  top: 25px;
+  line-height: 1;
+}
+
+.settings-slider__min {
+  left: 0;
+}
+
+.settings-slider__max {
+  right: 0;
+}
+
+.settings-slider__value {
+  left: calc((5 - 2) / (9 - 2) * 100%);
+  min-width: 22px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--color-panel-elevated), var(--color-text) 5%);
+  color: var(--color-text);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.settings-slider--disabled {
+  cursor: not-allowed;
+  opacity: 0.66;
 }
 
 .theme-dot {

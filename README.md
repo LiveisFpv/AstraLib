@@ -58,7 +58,7 @@ AstraLib/
 
 ### SSO
 
-Подсистема SSO не входит в репозиторий и считается заменяемым внешним сервисом. Используются HTTP endpoints:
+Подсистема SSO считается заменяемым внешним сервисом. Используются HTTP endpoints:
 
 - `/api/auth/login`, `/api/auth/logout`, `/api/auth/refresh`;
 - `/api/auth/authenticate` - профиль и роли;
@@ -220,6 +220,7 @@ make cloudflared-deploy
 - [Gateway](services/gateway/readme.md)
 - [Semantic](services/semantic/README.md)
 - [ELK stack](services/ELK/README.md)
+- [sso](services/sso/readme.md)
 
 ## Проверки
 

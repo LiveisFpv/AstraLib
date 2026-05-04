@@ -143,6 +143,8 @@ function buildPayload(): UserUpdateRequest {
   return payload
 }
 
+const hasProfileChanges = computed(() => Object.keys(buildPayload()).length > 0)
+
 async function saveProfile() {
   successMsg.value = ''
   errorMsg.value = ''
@@ -433,17 +435,19 @@ onBeforeUnmount(() => {
             <button type="button" class="settings-button settings-button--danger" @click="handleLogout">
               {{ t('profile.btn.logout') }}
             </button>
-            <button type="button" class="settings-button" :disabled="saving" @click="resetFormFromUser">
-              {{ t('profile.btn.cancel') }}
-            </button>
-            <button
-              type="button"
-              class="settings-button settings-button--primary"
-              :disabled="saving"
-              @click="saveProfile"
-            >
-              {{ saving ? t('profile.saving') : t('profile.btn.save') }}
-            </button>
+            <template v-if="hasProfileChanges">
+              <button type="button" class="settings-button" :disabled="saving" @click="resetFormFromUser">
+                {{ t('profile.btn.cancel') }}
+              </button>
+              <button
+                type="button"
+                class="settings-button settings-button--primary"
+                :disabled="saving"
+                @click="saveProfile"
+              >
+                {{ saving ? t('profile.saving') : t('profile.btn.save') }}
+              </button>
+            </template>
           </footer>
         </div>
       </main>

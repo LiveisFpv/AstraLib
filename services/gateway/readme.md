@@ -1,101 +1,218 @@
-# AstraLib Gateway Service
+﻿# AstraLib Gateway Service
 
-HTTP gateway for the AstraLib semantic search stack. Exposes a REST API for chat,
-author submissions, and moderation; validates JWT tokens via an external SSO
-service; and proxies requests to semantic-service over gRPC.
+Gateway - HTTP API слой AstraLib на Go/Gin. Он принимает REST-запросы frontend, проверяет JWT через внешний SSO, применяет ролевую авторизацию, управляет чатами и author submissions, а поисковые и ingestion-операции проксирует в semantic-service по gRPC.
 
-## Architecture
+## Возможности
 
-- HTTP server (Gin) on `HTTP_PORT`, base path `/api`
-- gRPC client to AI service at `AI_GRPC_ADDR`
-- JWT validation by SSO: `SSO_HTTP_URL/api/auth/validate`
-- Role/profile fetch by SSO: `SSO_HTTP_URL/api/auth/authenticate`
-- Swagger UI at `/swagger` (optional basic auth)
+- REST API с base path `/api`;
+- Swagger UI на `/swagger/index.html`;
+- CORS по списку `ALLOWED_CORS_ORIGINS`;
+- проверка JWT через `SSO_HTTP_URL/api/auth/validate`;
+- получение профиля и ролей через `SSO_HTTP_URL/api/auth/authenticate`;
+- role-based доступ для author/moderation endpoints;
+- gRPC-клиент semantic-service по `AI_GRPC_ADDR`;
+- endpoints для чатов, истории поиска, авторских публикаций и модерации;
+- опциональная Basic Auth для Swagger.
 
-## Quick start (Docker)
+## Архитектура
 
-1) Copy env file: `cp .env.example .env` (PowerShell: `copy .env.example .env`)
-2) Create external network once: `docker network create grpc_network`
-3) Start: `docker compose --env-file .env up --build`
+- `cmd/main.go` - точка входа;
+- `internal/config/config.go` - загрузка env через `cleanenv`;
+- `internal/app/app.go` - сборка зависимостей приложения;
+- `internal/transport/http/server.go` - Gin server, CORS, Swagger, route groups;
+- `internal/transport/http/router.go` - регистрация endpoints;
+- `internal/transport/http/middlewares/` - JWT/role middleware и logging;
+- `internal/transport/http/handlers/` - HTTP handlers;
+- `internal/transport/http/presenters/` - преобразование доменных моделей в HTTP DTO;
+- `internal/service/` - бизнес-логика gateway;
+- `internal/transport/rpc/semantic_client.go` - gRPC-клиент semantic-service;
+- `proto/service.proto` - gRPC-контракт с semantic-service;
+- `gen/go/` - сгенерированные protobuf/gRPC файлы;
+- `docs/` - сгенерированный Swagger;
+- `tools/migrator/` и `db/migrations/` - мигратор и SQL-миграции, если используется локальная БД gateway.
 
-The compose stack starts:
+## Быстрый старт в корневом стеке
 
-- `core` service (this app) with hot reload via `air`
-- `postgres` and `migrator`
+Обычно gateway запускается из корня репозитория вместе с nginx, frontend и semantic-service:
 
-If the AI service runs in Docker, attach it to `grpc_network` and set
-`AI_GRPC_ADDR` to its service name and port.
+```bash
+cd ../..
+cp .env.example .env
+docker compose --env-file .env up -d --build gateway
+```
 
-## Local development
+В корневом compose gateway:
 
-- Install Go 1.23+ and `protoc` (for gRPC code generation).
-- Start Postgres and the AI gRPC service.
-- Run: `go run ./cmd` or `air -c .air.toml`.
+- слушает `HTTP_PORT=8080` внутри контейнера;
+- доступен наружу через nginx по `/api`;
+- подключается к semantic-service по `semantic-service:${SEMANTIC_PORT:-5104}`;
+- использует `SSO_HTTP_URL` для проверки токенов;
+- не публикует порт напрямую, а использует `expose`.
+
+## Изолированный Docker Compose
+
+Сервисный `docker-compose.yml` полезен для разработки gateway отдельно от корневого стека.
+
+1. Создайте внешнюю сеть, если она еще не создана:
+
+```bash
+docker network create grpc_network
+```
+
+2. Подготовьте `.env` в `services/gateway`:
+
+```env
+DOMAIN=localhost
+PUBLIC_URL=http://localhost:8080
+ALLOWED_REDIRECT_URLS=http://localhost
+ALLOWED_CORS_ORIGINS=http://localhost,http://localhost:5173
+HTTP_PORT=8080
+SWAGGER_ENABLED=true
+SWAGGER_USER=
+SWAGGER_PASSWORD=
+GRPC_TIMEOUT=24h
+AI_GRPC_ADDR=semantic-service:5104
+SSO_HTTP_URL=https://id.example.com
+```
+
+3. Запустите:
+
+```bash
+docker compose --env-file .env up --build
+```
+
+Если semantic-service запущен в другом compose, он должен быть подключен к `grpc_network`, а `AI_GRPC_ADDR` должен указывать на его network alias и порт.
+
+## Локальная разработка
+
+Требования:
+
+- Go 1.23+;
+- доступный SSO API;
+- доступный semantic-service gRPC;
+- `protoc`, если нужно пересоздавать gRPC stubs;
+- `swag`, если нужно пересоздавать Swagger docs.
+
+Запуск:
+
+```bash
+go run ./cmd
+```
+
+С переменными PowerShell:
+
+```powershell
+$env:HTTP_PORT="8080"
+$env:ALLOWED_CORS_ORIGINS="http://localhost:5173"
+$env:AI_GRPC_ADDR="localhost:5104"
+$env:SSO_HTTP_URL="https://id.example.com"
+go run ./cmd
+```
+
+## Переменные окружения
+
+Обязательные для рабочего API:
+
+- `ALLOWED_CORS_ORIGINS` - список origins через запятую. Если пусто, gateway завершает запуск;
+- `SSO_HTTP_URL` - базовый URL внешнего SSO;
+- `AI_GRPC_ADDR` - адрес semantic-service в формате `host:port`.
+
+Основные:
+
+- `DOMAIN` - домен сервиса, используется для Swagger host fallback;
+- `PUBLIC_URL` - публичный URL, по нему выставляются Swagger host/scheme;
+- `ALLOWED_REDIRECT_URLS` - список допустимых redirect URLs;
+- `HTTP_PORT` - порт HTTP server, по умолчанию `8080`;
+- `GRPC_TIMEOUT` - timeout для gRPC и SSO HTTP client, по умолчанию `5s`;
+- `SWAGGER_ENABLED` - включает Swagger, по умолчанию `true`;
+- `SWAGGER_USER`, `SWAGGER_PASSWORD` - если оба заданы, Swagger закрывается Basic Auth.
+
+Переменные БД (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_SSL`) оставлены в конфигурации и миграторе, но основной runtime gateway сейчас работает как API/gRPC слой без собственной активной Postgres-зависимости в корневом compose.
 
 ## API
 
 Base path: `/api`.
 
-Protected endpoints (require `Authorization: Bearer <token>`):
+Все защищенные endpoints ожидают:
 
-- Chat/search:
-  - `POST /api/chats`
-  - `GET /api/chats`
-  - `GET /api/chats/{chat_id}/history`
-  - `POST /api/chats/{chat_id}/history`
-  - `PUT /api/chats/{chat_id}`
-  - `DELETE /api/chats/{chat_id}`
-- Author submissions:
-  - `POST /api/submissions`
-  - `GET /api/submissions`
-  - `GET /api/submissions/{submission_id}`
-  - `PUT /api/submissions/{submission_id}`
-  - `DELETE /api/submissions/{submission_id}`
-  - `POST /api/submissions/{submission_id}/submit`
-- Moderation:
-  - `GET /api/moderation/submissions`
-  - `GET /api/moderation/submissions/{submission_id}`
-  - `PUT /api/moderation/submissions/{submission_id}`
-  - `POST /api/moderation/submissions/{submission_id}/moderate`
-
-Swagger: `http://localhost:8080/swagger/index.html` (if enabled).
-
-## Environment variables
-
-Required:
-
-- `ALLOWED_CORS_ORIGINS` (comma-separated; service exits if empty)
-- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
-
-Optional:
-
-- `DOMAIN`, `PUBLIC_URL`, `ALLOWED_REDIRECT_URLS`
-- `AI_GRPC_ADDR` (default `localhost:5104`), `GRPC_TIMEOUT`
-- `SSO_HTTP_URL` (required for protected endpoints to succeed)
-- `HTTP_PORT`
-- `SWAGGER_ENABLED`, `SWAGGER_USER`, `SWAGGER_PASSWORD`
-- `DB_SSL` (defaults to `disable`)
-
-## Migrations
-
-Migrations run automatically in Docker Compose via `tools/migrator`.
-For manual runs:
-
-```
-go run tools/migrator/main.go --user=... --password=... --host=... --port=... --dbname=... --migrations-path=./db/migrations
+```http
+Authorization: Bearer <token>
 ```
 
-## Generate gRPC stubs
+### Chats/search
 
-```
-protoc -I proto `
---go_out=gen/go --go_opt=paths=source_relative `
---go-grpc_out=gen/go --go-grpc_opt=paths=source_relative `
-proto/service.proto
+- `POST /api/chats` - создать чат;
+- `GET /api/chats` - список чатов пользователя;
+- `GET /api/chats/{chat_id}/history` - история чата;
+- `POST /api/chats/{chat_id}/history` - отправить поисковый запрос;
+- `PUT /api/chats/{chat_id}` - переименовать чат;
+- `DELETE /api/chats/{chat_id}` - удалить чат.
+
+### Author submissions
+
+Доступны авторизованным пользователям с ролями, которые возвращает SSO и которые допускает frontend workflow.
+
+- `POST /api/submissions` - создать submission;
+- `GET /api/submissions` - список своих submissions;
+- `GET /api/submissions/{submission_id}` - получить свой submission;
+- `PUT /api/submissions/{submission_id}` - обновить свой submission;
+- `DELETE /api/submissions/{submission_id}` - удалить draft/rejected submission;
+- `POST /api/submissions/{submission_id}/submit` - отправить на модерацию.
+
+### Moderation
+
+Требует роль `MODERATOR` или `ADMIN`.
+
+- `GET /api/moderation/submissions` - очередь модерации;
+- `GET /api/moderation/submissions/{submission_id}` - карточка submission;
+- `PUT /api/moderation/submissions/{submission_id}` - обновить staged-данные;
+- `POST /api/moderation/submissions/{submission_id}/moderate` - approve/reject.
+
+При approve gateway вызывает semantic-service, где статья ставится в ingestion queue.
+
+## Swagger
+
+Swagger UI:
+
+```text
+http://localhost:8080/swagger/index.html
 ```
 
-## Generate swagger docs
+Если gateway работает за nginx, используйте:
 
+```text
+https://<domain>/swagger/index.html
 ```
+
+Перегенерация docs:
+
+```bash
 swag init -g cmd/main.go -o docs
 ```
+
+## gRPC stubs
+
+Контракт лежит в `proto/service.proto`. Перегенерация:
+
+```powershell
+protoc -I proto `
+  --go_out=gen/go --go_opt=paths=source_relative `
+  --go-grpc_out=gen/go --go-grpc_opt=paths=source_relative `
+  proto/service.proto
+```
+
+После изменения proto нужно синхронизировать контракт с `services/semantic/proto/service.proto` и Python-generated файлами semantic-service.
+
+## Проверки
+
+```bash
+go test ./...
+go vet ./...
+```
+
+Перед интеграционной проверкой убедитесь, что:
+
+- `ALLOWED_CORS_ORIGINS` содержит origin frontend;
+- `SSO_HTTP_URL` доступен из контейнера или локального окружения;
+- `AI_GRPC_ADDR` указывает на живой semantic-service;
+- Swagger включен, если нужен ручной smoke-test API.

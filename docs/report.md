@@ -45,13 +45,6 @@
   "alpha_vals": [
     0.02
   ],
-  "rerank_weights": {
-    "self": 0.0,
-    "out1": 0.0,
-    "in1": 0.05,
-    "out2": 0.03,
-    "in2": 0.025
-  },
   "rerank_grid": true,
   "rerank_weight_grid": "out1_975_out2_025:self=0,out1=0.975,in1=0,out2=0.025,in2=0;",
   "rerank_tune_frac": 0.7,

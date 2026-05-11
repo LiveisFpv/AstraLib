@@ -25,10 +25,15 @@ build_candidate_union = MODULE.build_candidate_union
 evaluate_ranked = MODULE.evaluate_ranked
 extract_topics_from_row = MODULE.extract_topics_from_row
 parse_judge_json = MODULE.parse_judge_json
+parse_auto_weight_values = MODULE.parse_auto_weight_values
+parse_rerank_weight_grid = MODULE.parse_rerank_weight_grid
+parse_weight_keys = MODULE.parse_weight_keys
 rerank_by_score_blend = MODULE.rerank_by_score_blend
 run_name_for_alpha = MODULE.run_name_for_alpha
+run_name_for_weight_alpha = MODULE.run_name_for_weight_alpha
 select_best_run_by_metric = MODULE.select_best_run_by_metric
 select_topic_queries = MODULE.select_topic_queries
+split_query_indices = MODULE.split_query_indices
 
 
 def test_extract_topics_from_pipe_separated_metadata_deduplicates() -> None:
@@ -97,6 +102,73 @@ def test_rerank_positive_alpha_changes_order_by_citation_score() -> None:
 
 def test_run_name_for_alpha_is_stable_for_file_friendly_names() -> None:
     assert run_name_for_alpha(0.05) == "rerank_alpha_0p05"
+    assert run_name_for_weight_alpha("In1 + Out2", 0.2) == "rerank_in1_out2_alpha_0p2"
+
+
+def test_parse_rerank_weight_grid_supports_preset_and_custom() -> None:
+    preset = parse_rerank_weight_grid(
+        "preset",
+        auto_values=[0.01],
+        auto_keys=["in1"],
+        auto_max_active=1,
+        auto_limit=10,
+        auto_ratio_bins=4,
+        seed=42,
+    )
+    assert len(preset) > 1
+    assert all(weights["self"] == 0.0 for _, weights in preset)
+
+    custom = parse_rerank_weight_grid(
+        "only_in1:self=0,out1=0,in1=0.05,out2=0,in2=0;self=0,out1=0,in1=0,out2=0.03,in2=0",
+        auto_values=[0.01],
+        auto_keys=["in1"],
+        auto_max_active=1,
+        auto_limit=10,
+        auto_ratio_bins=4,
+        seed=42,
+    )
+    assert custom[0][0] == "only_in1"
+    assert custom[0][1]["in1"] == 0.05
+    assert custom[1][0] == "w2"
+    assert custom[1][1]["out2"] == 0.03
+
+
+def test_parse_rerank_weight_grid_auto_generates_limited_dynamic_configs() -> None:
+    generated = parse_rerank_weight_grid(
+        "auto",
+        auto_values=None,
+        auto_keys=parse_weight_keys("in1,out2"),
+        auto_max_active=2,
+        auto_limit=5,
+        auto_ratio_bins=4,
+        seed=42,
+    )
+
+    assert len(generated) == 5
+    assert all(weights["self"] == 0.0 for _, weights in generated)
+    assert ("in1_1", {"self": 0.0, "out1": 0.0, "in1": 1.0, "out2": 0.0, "in2": 0.0}) in generated
+    assert ("out2_1", {"self": 0.0, "out1": 0.0, "in1": 0.0, "out2": 1.0, "in2": 0.0}) in generated
+    assert any("0p25" in name or "0p5" in name or "0p75" in name for name, _ in generated)
+
+
+def test_parse_auto_weight_values_accepts_auto_or_explicit_values() -> None:
+    assert parse_auto_weight_values("auto") is None
+    assert parse_auto_weight_values("0.1,0.2") == [0.1, 0.2]
+
+
+def test_split_query_indices_is_deterministic_and_disjoint() -> None:
+    queries = [
+        TopicQuery(query_id=f"q{idx}", text=f"topic {idx}", source="topics", doc_frequency=10)
+        for idx in range(10)
+    ]
+
+    first = split_query_indices(queries, tune_frac=0.7, seed=42)
+    second = split_query_indices(queries, tune_frac=0.7, seed=42)
+
+    assert first == second
+    assert len(first[0]) == 7
+    assert len(first[1]) == 3
+    assert set(first[0]).isdisjoint(first[1])
 
 
 def test_select_best_run_prefers_ndcg10_and_falls_back_to_ndcg5() -> None:

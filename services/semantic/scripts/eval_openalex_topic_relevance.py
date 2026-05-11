@@ -16,6 +16,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from dataclasses import asdict, dataclass
+from itertools import combinations, product
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -52,6 +53,7 @@ from src.parser.citation_cache import build_weighted_vectors, cache_paths, parse
 
 PROMPT_VERSION = "openalex-topic-relevance-v1"
 TOPIC_COLUMNS = ("topics_names", "keywords_names", "concepts_names")
+CITATION_WEIGHT_KEYS = ("out1", "in1", "out2", "in2")
 STOP_TOPICS = {
     "article",
     "research",
@@ -368,6 +370,168 @@ def run_name_for_alpha(alpha: float) -> str:
     return f"rerank_alpha_{alpha:g}".replace(".", "p").replace("-", "m")
 
 
+def safe_name(value: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_]+", "_", value.strip().lower())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    return cleaned or "config"
+
+
+def safe_float_token(value: float) -> str:
+    return f"{value:g}".replace(".", "p").replace("-", "m")
+
+
+def run_name_for_weight_alpha(weight_name: str, alpha: float) -> str:
+    return f"rerank_{safe_name(weight_name)}_alpha_{alpha:g}".replace(".", "p").replace("-", "m")
+
+
+def preset_rerank_weight_grid() -> list[tuple[str, dict[str, float]]]:
+    return [
+        ("in1_0p02", parse_weights("self=0.0,out1=0.0,in1=0.02,out2=0.0,in2=0.0")),
+        ("in1_0p05", parse_weights("self=0.0,out1=0.0,in1=0.05,out2=0.0,in2=0.0")),
+        ("in1_0p10", parse_weights("self=0.0,out1=0.0,in1=0.10,out2=0.0,in2=0.0")),
+        ("out2_0p03", parse_weights("self=0.0,out1=0.0,in1=0.0,out2=0.03,in2=0.0")),
+        ("in2_0p025", parse_weights("self=0.0,out1=0.0,in1=0.0,out2=0.0,in2=0.025")),
+        ("in1_0p05_out2_0p03", parse_weights("self=0.0,out1=0.0,in1=0.05,out2=0.03,in2=0.0")),
+        ("in1_0p05_in2_0p025", parse_weights("self=0.0,out1=0.0,in1=0.05,out2=0.0,in2=0.025")),
+        ("in1_0p05_out2_0p03_in2_0p025", parse_weights("self=0.0,out1=0.0,in1=0.05,out2=0.03,in2=0.025")),
+        ("out1_0p01_in1_0p05", parse_weights("self=0.0,out1=0.01,in1=0.05,out2=0.0,in2=0.0")),
+    ]
+
+
+def parse_weight_keys(raw: str) -> list[str]:
+    keys = [item.strip() for item in raw.split(",") if item.strip()]
+    unknown = [key for key in keys if key not in CITATION_WEIGHT_KEYS]
+    if unknown:
+        raise ValueError(f"Unknown rerank auto weight keys: {', '.join(unknown)}")
+    if not keys:
+        raise ValueError("At least one rerank auto weight key is required")
+    return keys
+
+
+def parse_auto_weight_values(raw: str) -> list[float] | None:
+    text = raw.strip()
+    if not text or text.lower() == "auto":
+        return None
+    return parse_float_values(text)
+
+
+def positive_integer_compositions(total: int, parts: int) -> list[tuple[int, ...]]:
+    if total < parts:
+        raise ValueError("--rerank-auto-ratio-bins must be >= --rerank-auto-max-active")
+    if parts == 1:
+        return [(total,)]
+    result: list[tuple[int, ...]] = []
+    for head in range(1, total - parts + 2):
+        for tail in positive_integer_compositions(total - head, parts - 1):
+            result.append((head, *tail))
+    return result
+
+
+def auto_weight_value_sets(
+    *,
+    active_count: int,
+    explicit_values: Sequence[float] | None,
+    ratio_bins: int,
+) -> list[tuple[float, ...]]:
+    if explicit_values is not None:
+        nonzero_values = sorted({float(value) for value in explicit_values if float(value) != 0.0})
+        if not nonzero_values:
+            raise ValueError("--rerank-auto-weight-values must contain at least one non-zero value")
+        return [tuple(float(value) for value in values) for values in product(nonzero_values, repeat=active_count)]
+    if active_count == 1:
+        return [(1.0,)]
+    return [
+        tuple(part / float(ratio_bins) for part in composition)
+        for composition in positive_integer_compositions(ratio_bins, active_count)
+    ]
+
+
+def auto_rerank_weight_grid(
+    *,
+    values: Sequence[float] | None,
+    keys: Sequence[str],
+    max_active: int,
+    limit: int,
+    seed: int,
+    ratio_bins: int,
+) -> list[tuple[str, dict[str, float]]]:
+    if max_active < 1:
+        raise ValueError("--rerank-auto-max-active must be >= 1")
+    if limit < 1:
+        raise ValueError("--rerank-auto-grid-limit must be >= 1")
+    if ratio_bins < max_active:
+        raise ValueError("--rerank-auto-ratio-bins must be >= --rerank-auto-max-active")
+
+    configs: list[tuple[str, dict[str, float]]] = []
+    max_active = min(max_active, len(keys))
+    for active_count in range(1, max_active + 1):
+        for active_keys in combinations(keys, active_count):
+            for active_values in auto_weight_value_sets(
+                active_count=active_count,
+                explicit_values=values,
+                ratio_bins=ratio_bins,
+            ):
+                weights = parse_weights("self=0.0,out1=0.0,in1=0.0,out2=0.0,in2=0.0")
+                name_parts: list[str] = []
+                for key, value in zip(active_keys, active_values, strict=True):
+                    weights[key] = float(value)
+                    name_parts.append(f"{key}_{safe_float_token(float(value))}")
+                configs.append(("_".join(name_parts), weights))
+
+    configs.sort(key=lambda item: (len([value for key, value in item[1].items() if key != "self" and value != 0.0]), item[0]))
+    if len(configs) <= limit:
+        return configs
+
+    singles = [
+        item
+        for item in configs
+        if sum(1 for key, value in item[1].items() if key != "self" and value != 0.0) == 1
+    ]
+    selected: dict[str, tuple[str, dict[str, float]]] = {name: (name, weights) for name, weights in singles[:limit]}
+    remaining = [(name, weights) for name, weights in configs if name not in selected]
+    remaining.sort(key=lambda item: stable_fraction(f"{seed}\x1f{item[0]}"))
+    for name, weights in remaining:
+        if len(selected) >= limit:
+            break
+        selected[name] = (name, weights)
+    return sorted(selected.values(), key=lambda item: item[0])
+
+
+def parse_rerank_weight_grid(
+    raw: str,
+    *,
+    auto_values: Sequence[float],
+    auto_keys: Sequence[str],
+    auto_max_active: int,
+    auto_limit: int,
+    auto_ratio_bins: int,
+    seed: int,
+) -> list[tuple[str, dict[str, float]]]:
+    text = raw.strip()
+    if not text or text.lower() == "auto":
+        return auto_rerank_weight_grid(
+            values=auto_values,
+            keys=auto_keys,
+            max_active=auto_max_active,
+            limit=auto_limit,
+            seed=seed,
+            ratio_bins=auto_ratio_bins,
+        )
+    if text.lower() == "preset":
+        return preset_rerank_weight_grid()
+    configs: list[tuple[str, dict[str, float]]] = []
+    for idx, token in enumerate(part.strip() for part in text.split(";") if part.strip()):
+        if ":" in token:
+            name, weights_raw = token.split(":", 1)
+        else:
+            name = f"w{idx + 1}"
+            weights_raw = token
+        configs.append((safe_name(name), parse_weights(weights_raw)))
+    if not configs:
+        raise ValueError("Rerank weight grid cannot be empty")
+    return configs
+
+
 def rerank_by_score_blend(
     *,
     semantic_ranked: Sequence[Sequence[int]],
@@ -602,6 +766,23 @@ def select_best_run_by_metric(
     return best_run, metric_name
 
 
+def split_query_indices(
+    queries: Sequence[TopicQuery],
+    *,
+    tune_frac: float,
+    seed: int,
+) -> tuple[list[int], list[int]]:
+    if not 0.0 < tune_frac < 1.0:
+        raise ValueError("--rerank-tune-frac must be between 0 and 1")
+    ordered = sorted(
+        range(len(queries)),
+        key=lambda idx: stable_fraction(f"{seed}\x1f{queries[idx].query_id}\x1f{queries[idx].text}"),
+    )
+    split_at = int(round(len(ordered) * tune_frac))
+    split_at = min(max(split_at, 1), max(len(ordered) - 1, 1))
+    return ordered[:split_at], ordered[split_at:]
+
+
 def evaluate_ranked(
     *,
     queries: Sequence[TopicQuery],
@@ -609,11 +790,17 @@ def evaluate_ranked(
     metas: Sequence[DocMeta],
     scores: dict[tuple[str, str], int],
     eval_top_k: int,
+    query_indices: Sequence[int] | None = None,
 ) -> tuple[dict[str, float], list[dict[str, Any]]]:
     totals: dict[str, float] = defaultdict(float)
     per_query: list[dict[str, Any]] = []
     evaluated = 0
-    for query, row in zip(queries, ranked, strict=True):
+    iterator: Iterable[tuple[TopicQuery, Sequence[int]]]
+    if query_indices is None:
+        iterator = zip(queries, ranked, strict=True)
+    else:
+        iterator = ((queries[idx], ranked[idx]) for idx in query_indices)
+    for query, row in iterator:
         top = list(row[:eval_top_k])
         gains: list[int] = []
         for idx in top:
@@ -662,6 +849,62 @@ def write_queries(path: Path, queries: Sequence[TopicQuery]) -> None:
             file_obj.write(json.dumps(asdict(query), ensure_ascii=False) + "\n")
 
 
+def write_rerank_grid_artifacts(
+    *,
+    out_dir: Path,
+    run_meta: dict[str, dict[str, Any]],
+    all_metrics: dict[str, dict[str, float]],
+    split_metrics: dict[str, dict[str, dict[str, float]]],
+    best_run: str | None,
+    selection_metric: str,
+) -> None:
+    rerank_runs = sorted(run_meta)
+    metric_names = sorted(
+        {
+            metric
+            for metrics in list(all_metrics.values()) + [
+                run_metrics
+                for split_values in split_metrics.values()
+                for run_metrics in split_values.values()
+            ]
+            for metric in metrics
+        }
+    )
+    with open(out_dir / "rerank_grid.csv", "w", newline="", encoding="utf-8") as file_obj:
+        writer = csv.DictWriter(
+            file_obj,
+            fieldnames=["run", "split", "weight_config", "alpha", "selected", *metric_names],
+        )
+        writer.writeheader()
+        for split_name, metrics_by_run in [("all", all_metrics), *split_metrics.items()]:
+            for run in rerank_runs:
+                metrics = metrics_by_run.get(run, {})
+                meta = run_meta[run]
+                writer.writerow(
+                    {
+                        "run": run,
+                        "split": split_name,
+                        "weight_config": meta.get("weight_config", ""),
+                        "alpha": meta.get("alpha", ""),
+                        "selected": run == best_run,
+                        **{metric: metrics.get(metric, 0.0) for metric in metric_names},
+                    }
+                )
+    with open(out_dir / "rerank_grid.json", "w", encoding="utf-8") as file_obj:
+        json.dump(
+            {
+                "best_run": best_run,
+                "selection_metric": selection_metric,
+                "run_meta": run_meta,
+                "all_metrics": {run: all_metrics.get(run, {}) for run in rerank_runs},
+                "split_metrics": split_metrics,
+            },
+            file_obj,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+
 def write_reports(
     *,
     out_dir: Path,
@@ -682,8 +925,14 @@ def write_reports(
 
     baseline = metrics_by_run["baseline"]
     citation = metrics_by_run.get("citation_aware", {})
-    rerank_runs = [name for name in metrics_by_run if name.startswith("rerank_alpha_")]
-    best_rerank, best_metric_name = select_best_run_by_metric(rerank_runs, metrics_by_run)
+    rerank_runs = [name for name in metrics_by_run if name.startswith("rerank_")]
+    grid_stats = stats.get("rerank_grid") if isinstance(stats.get("rerank_grid"), dict) else {}
+    best_rerank = grid_stats.get("best_run") if isinstance(grid_stats, dict) else None
+    best_metric_name = grid_stats.get("selection_metric") if isinstance(grid_stats, dict) else None
+    if not best_rerank:
+        best_rerank, best_metric_name = select_best_run_by_metric(rerank_runs, metrics_by_run)
+    if not best_metric_name:
+        _, best_metric_name = select_best_run_by_metric(rerank_runs, metrics_by_run)
     lines = [
         "# OpenAlex Topical Relevance Evaluation",
         "",
@@ -718,6 +967,34 @@ def write_reports(
         ):
             score = metrics_by_run[run].get(best_metric_name, 0.0)
             lines.append(f"| {rank} | `{run}` | {score:.6f} | {score - baseline.get(best_metric_name, 0.0):+.6f} |")
+        if grid_stats:
+            lines.extend(
+                [
+                    "",
+                    "## Rerank Grid Selection",
+                    "",
+                    f"- selection split: `{grid_stats.get('selection_split', 'tune')}`",
+                    f"- selection metric: `{best_metric_name}`",
+                    f"- selected run: `{best_rerank}`",
+                    f"- tune queries: `{grid_stats.get('tune_queries', 0)}`",
+                    f"- holdout queries: `{grid_stats.get('holdout_queries', 0)}`",
+                    f"- grid runs: `{grid_stats.get('grid_runs', 0)}`",
+                    "",
+                    "| Metric | Tune selected | Holdout selected | Holdout baseline | Holdout delta |",
+                    "| --- | ---: | ---: | ---: | ---: |",
+                ]
+            )
+            split_metrics = grid_stats.get("split_metrics", {})
+            tune_metrics = split_metrics.get("tune", {}).get(best_rerank, {}) if isinstance(split_metrics, dict) else {}
+            holdout_metrics = split_metrics.get("holdout", {}).get(best_rerank, {}) if isinstance(split_metrics, dict) else {}
+            holdout_baseline = split_metrics.get("holdout", {}).get("baseline", {}) if isinstance(split_metrics, dict) else {}
+            for name in metric_names:
+                tune_value = tune_metrics.get(name, 0.0)
+                holdout_value = holdout_metrics.get(name, 0.0)
+                base_value = holdout_baseline.get(name, 0.0)
+                lines.append(
+                    f"| {name} | {tune_value:.6f} | {holdout_value:.6f} | {base_value:.6f} | {holdout_value - base_value:+.6f} |"
+                )
     else:
         lines.extend(
             [
@@ -800,6 +1077,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rerank-mode", choices=["none", "citation-score"], default="none")
     parser.add_argument("--alpha-vals", default="0.0,0.02,0.05,0.1,0.2,0.5,1.0")
     parser.add_argument("--rerank-weights", default="self=0.0,out1=0.0,in1=0.05,out2=0.03,in2=0.025")
+    parser.add_argument("--rerank-grid", action="store_true", help="Tune reranker citation weights over a grid.")
+    parser.add_argument(
+        "--rerank-weight-grid",
+        default="auto",
+        help=(
+            "Either 'auto', 'preset', or semicolon-separated configs like "
+            "'name:self=0,out1=0,in1=0.05,out2=0,in2=0;other:self=0,out1=0,in1=0,out2=0.03,in2=0'."
+        ),
+    )
+    parser.add_argument(
+        "--rerank-auto-weight-values",
+        default="auto",
+        help="Use 'auto' for ratio weights, or pass explicit values like '0.01,0.025,0.05,0.1'.",
+    )
+    parser.add_argument("--rerank-auto-weight-keys", default="out1,in1,out2,in2")
+    parser.add_argument("--rerank-auto-max-active", type=int, default=2)
+    parser.add_argument("--rerank-auto-grid-limit", type=int, default=40)
+    parser.add_argument("--rerank-auto-ratio-bins", type=int, default=4)
+    parser.add_argument("--rerank-tune-frac", type=float, default=0.7)
+    parser.add_argument("--rerank-grid-metric", default="nDCG@10")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--min-topic-df", type=int, default=20)
     parser.add_argument("--max-topic-df", type=int)
@@ -819,6 +1116,17 @@ def parse_args() -> argparse.Namespace:
         raise ValueError("--candidate-top-k must be >= --eval-top-k")
     if args.retrieval_top_k < args.candidate_top_k:
         raise ValueError("--retrieval-top-k must be >= --candidate-top-k")
+    if args.rerank_grid and not 0.0 < args.rerank_tune_frac < 1.0:
+        raise ValueError("--rerank-tune-frac must be between 0 and 1")
+    if args.rerank_grid:
+        parse_auto_weight_values(args.rerank_auto_weight_values)
+        parse_weight_keys(args.rerank_auto_weight_keys)
+        if args.rerank_auto_max_active < 1:
+            raise ValueError("--rerank-auto-max-active must be >= 1")
+        if args.rerank_auto_grid_limit < 1:
+            raise ValueError("--rerank-auto-grid-limit must be >= 1")
+        if args.rerank_auto_ratio_bins < args.rerank_auto_max_active:
+            raise ValueError("--rerank-auto-ratio-bins must be >= --rerank-auto-max-active")
     return args
 
 
@@ -876,30 +1184,59 @@ def main() -> None:
         cache_dir=cache_dir / "citation_cache",
     )
     rerank_ranked_by_run: dict[str, list[list[int]]] = {}
+    rerank_run_meta: dict[str, dict[str, Any]] = {}
     rerank_stats: dict[str, Any] = {}
-    if args.rerank_mode == "citation-score":
+    if args.rerank_mode == "citation-score" or args.rerank_grid:
         alphas = parse_float_values(args.alpha_vals)
-        rerank_weights = parse_weights(args.rerank_weights)
-        citation_feature_scores, citation_feature_seconds = compute_candidate_citation_scores(
-            embeddings=embeddings,
-            cache_dir=cache_dir / "citation_cache",
-            query_vectors=query_vectors,
-            ranked=baseline_ranked,
-            weights=rerank_weights,
-        )
-        rerank_stats = {
-            "mode": args.rerank_mode,
-            "alpha_vals": alphas,
-            "weights": rerank_weights,
-            "citation_feature_seconds": citation_feature_seconds,
-        }
-        for alpha in alphas:
-            rerank_ranked_by_run[run_name_for_alpha(alpha)] = rerank_by_score_blend(
-                semantic_ranked=baseline_ranked,
-                semantic_scores=baseline_scores,
-                citation_scores=citation_feature_scores,
-                alpha=alpha,
+        if args.rerank_grid:
+            weight_configs = parse_rerank_weight_grid(
+                args.rerank_weight_grid,
+                auto_values=parse_auto_weight_values(args.rerank_auto_weight_values),
+                auto_keys=parse_weight_keys(args.rerank_auto_weight_keys),
+                auto_max_active=args.rerank_auto_max_active,
+                auto_limit=args.rerank_auto_grid_limit,
+                auto_ratio_bins=args.rerank_auto_ratio_bins,
+                seed=args.seed,
             )
+        else:
+            weight_configs = [("single", parse_weights(args.rerank_weights))]
+        citation_feature_seconds_by_config: dict[str, float] = {}
+        rerank_stats = {
+            "mode": "citation-score",
+            "grid": bool(args.rerank_grid),
+            "alpha_vals": alphas,
+            "weight_configs": {name: weights for name, weights in weight_configs},
+            "citation_feature_seconds_by_config": citation_feature_seconds_by_config,
+        }
+        for config_name, rerank_weights in weight_configs:
+            citation_feature_scores, citation_feature_seconds = compute_candidate_citation_scores(
+                embeddings=embeddings,
+                cache_dir=cache_dir / "citation_cache",
+                query_vectors=query_vectors,
+                ranked=baseline_ranked,
+                weights=rerank_weights,
+            )
+            citation_feature_seconds_by_config[config_name] = citation_feature_seconds
+            for alpha in alphas:
+                if args.rerank_grid and alpha == 0.0:
+                    run_name = run_name_for_alpha(alpha)
+                    if run_name in rerank_ranked_by_run:
+                        continue
+                elif args.rerank_grid:
+                    run_name = run_name_for_weight_alpha(config_name, alpha)
+                else:
+                    run_name = run_name_for_alpha(alpha)
+                rerank_ranked_by_run[run_name] = rerank_by_score_blend(
+                    semantic_ranked=baseline_ranked,
+                    semantic_scores=baseline_scores,
+                    citation_scores=citation_feature_scores,
+                    alpha=alpha,
+                )
+                rerank_run_meta[run_name] = {
+                    "weight_config": config_name,
+                    "weights": rerank_weights,
+                    "alpha": alpha,
+                }
 
     candidate_unions = build_candidate_union(
         baseline_ranked,
@@ -949,8 +1286,58 @@ def main() -> None:
         )
         metrics_by_run[run_name] = run_metrics
         per_query_by_run[run_name] = run_per_query
-    rerank_runs = [name for name in metrics_by_run if name.startswith("rerank_alpha_")]
-    best_rerank, best_metric_name = select_best_run_by_metric(rerank_runs, metrics_by_run)
+    rerank_runs = [name for name in metrics_by_run if name.startswith("rerank_")]
+    split_metrics_by_run: dict[str, dict[str, dict[str, float]]] = {}
+    rerank_grid_stats: dict[str, Any] = {}
+    best_rerank: str | None
+    best_metric_name: str
+    if args.rerank_grid:
+        tune_indices, holdout_indices = split_query_indices(
+            queries,
+            tune_frac=args.rerank_tune_frac,
+            seed=args.seed,
+        )
+        split_metrics_by_run = {"tune": {}, "holdout": {}}
+        for split_name, indices in (("tune", tune_indices), ("holdout", holdout_indices)):
+            for run_name, ranked in {"baseline": baseline_ranked, "citation_aware": citation_ranked, **rerank_ranked_by_run}.items():
+                split_metrics, _ = evaluate_ranked(
+                    queries=queries,
+                    ranked=ranked,
+                    metas=metas,
+                    scores=scores,
+                    eval_top_k=args.eval_top_k,
+                    query_indices=indices,
+                )
+                split_metrics_by_run[split_name][run_name] = split_metrics
+        best_rerank, best_metric_name = select_best_run_by_metric(
+            rerank_runs,
+            split_metrics_by_run["tune"],
+            preferred_metric=args.rerank_grid_metric,
+        )
+        write_rerank_grid_artifacts(
+            out_dir=out_dir,
+            run_meta=rerank_run_meta,
+            all_metrics=metrics_by_run,
+            split_metrics=split_metrics_by_run,
+            best_run=best_rerank,
+            selection_metric=best_metric_name,
+        )
+        rerank_grid_stats = {
+            "enabled": True,
+            "selection_split": "tune",
+            "selection_metric": best_metric_name,
+            "best_run": best_rerank,
+            "tune_queries": len(tune_indices),
+            "holdout_queries": len(holdout_indices),
+            "grid_runs": len(rerank_runs),
+            "split_metrics": split_metrics_by_run,
+        }
+    else:
+        best_rerank, best_metric_name = select_best_run_by_metric(
+            rerank_runs,
+            metrics_by_run,
+            preferred_metric=args.rerank_grid_metric,
+        )
     best_comparison = best_rerank or "citation_aware"
     examples = build_examples(baseline_per_query, per_query_by_run[best_comparison], limit=50)
     stats = {
@@ -965,6 +1352,7 @@ def main() -> None:
         "baseline_search": baseline_search_stats,
         "citation_search": citation_search_stats,
         "rerank": rerank_stats,
+        "rerank_grid": rerank_grid_stats,
         "best_rerank": best_rerank,
         "best_rerank_metric": best_metric_name if best_rerank else None,
         "total_seconds": time.perf_counter() - started,
@@ -984,9 +1372,18 @@ def main() -> None:
         "retrieval_top_k": args.retrieval_top_k,
         "candidate_top_k": args.candidate_top_k,
         "eval_top_k": args.eval_top_k,
-        "rerank_mode": args.rerank_mode,
+        "rerank_mode": "citation-score" if args.rerank_grid else args.rerank_mode,
         "alpha_vals": parse_float_values(args.alpha_vals),
         "rerank_weights": parse_weights(args.rerank_weights),
+        "rerank_grid": args.rerank_grid,
+        "rerank_weight_grid": args.rerank_weight_grid,
+        "rerank_auto_weight_values": parse_auto_weight_values(args.rerank_auto_weight_values) or "auto",
+        "rerank_auto_weight_keys": parse_weight_keys(args.rerank_auto_weight_keys),
+        "rerank_auto_max_active": args.rerank_auto_max_active,
+        "rerank_auto_grid_limit": args.rerank_auto_grid_limit,
+        "rerank_auto_ratio_bins": args.rerank_auto_ratio_bins,
+        "rerank_tune_frac": args.rerank_tune_frac,
+        "rerank_grid_metric": args.rerank_grid_metric,
         "min_topic_df": args.min_topic_df,
         "max_topic_df": args.max_topic_df,
         "seed": args.seed,

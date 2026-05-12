@@ -10,6 +10,7 @@ python-dotenv
 protobuf
 grpcio-tools
 numpy
+matplotlib
 polars
 psycopg[binary]
 faiss-cpu

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -34,6 +36,7 @@ run_name_for_weight_alpha = MODULE.run_name_for_weight_alpha
 select_best_run_by_metric = MODULE.select_best_run_by_metric
 select_topic_queries = MODULE.select_topic_queries
 split_query_indices = MODULE.split_query_indices
+write_per_query_metrics = MODULE.write_per_query_metrics
 
 
 def test_extract_topics_from_pipe_separated_metadata_deduplicates() -> None:
@@ -228,4 +231,36 @@ def test_evaluate_ranked_computes_graded_metrics() -> None:
     assert metrics["Precision@5"] == 2 / 5
     assert metrics["StrongPrecision@5"] == 1 / 5
     assert 0.0 < metrics["nDCG@5"] <= 1.0
+    assert per_query[0]["Precision@5"] == 2 / 5
+    assert per_query[0]["MRR@10"] == 1.0
     assert per_query[0]["relevant_at_10"] == 2
+
+
+def test_write_per_query_metrics_includes_run_and_split() -> None:
+    rows = {
+        "baseline": [
+            {
+                "query_id": "q1",
+                "query": "topic",
+                "MRR@10": 1.0,
+                "Precision@5": 0.2,
+                "Precision@10": 0.1,
+                "StrongPrecision@5": 0.2,
+                "StrongPrecision@10": 0.1,
+                "nDCG@5": 0.5,
+                "nDCG@10": 0.4,
+                "dcg10": 1.0,
+                "relevant_at_10": 1,
+                "strong_at_10": 1,
+            }
+        ]
+    }
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "per_query_metrics.jsonl"
+        write_per_query_metrics(path, rows, split_by_query_id={"q1": "holdout"})
+        payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["run"] == "baseline"
+    assert payload["split"] == "holdout"
+    assert payload["nDCG@10"] == 0.4

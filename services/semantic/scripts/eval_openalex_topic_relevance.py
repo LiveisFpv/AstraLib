@@ -815,23 +815,29 @@ def evaluate_ranked(
             if query_id == query.query_id
         ]
         ideal = sorted(judged_scores, reverse=True)
+        query_metrics: dict[str, float] = {}
         for k in (5, 10):
             if eval_top_k < k:
                 continue
             denom = dcg(ideal[:k])
-            totals[f"nDCG@{k}"] += (dcg(gains[:k]) / denom) if denom > 0 else 0.0
-            totals[f"Precision@{k}"] += sum(1 for score in gains[:k] if score >= 1) / float(k)
-            totals[f"StrongPrecision@{k}"] += sum(1 for score in gains[:k] if score == 2) / float(k)
+            query_metrics[f"nDCG@{k}"] = (dcg(gains[:k]) / denom) if denom > 0 else 0.0
+            query_metrics[f"Precision@{k}"] = sum(1 for score in gains[:k] if score >= 1) / float(k)
+            query_metrics[f"StrongPrecision@{k}"] = sum(1 for score in gains[:k] if score == 2) / float(k)
+            for metric_name, value in query_metrics.items():
+                if metric_name.endswith(f"@{k}"):
+                    totals[metric_name] += value
         rr = 0.0
         for rank, score in enumerate(gains[: min(10, eval_top_k)], start=1):
             if score >= 1:
                 rr = 1.0 / float(rank)
                 break
         totals["MRR@10"] += rr
+        query_metrics["MRR@10"] = rr
         per_query.append(
             {
                 "query_id": query.query_id,
                 "query": query.text,
+                **query_metrics,
                 "dcg10": dcg(gains[: min(10, eval_top_k)]),
                 "relevant_at_10": sum(1 for score in gains[: min(10, eval_top_k)] if score >= 1),
                 "strong_at_10": sum(1 for score in gains[: min(10, eval_top_k)] if score == 2),
@@ -847,6 +853,40 @@ def write_queries(path: Path, queries: Sequence[TopicQuery]) -> None:
     with open(path, "w", encoding="utf-8") as file_obj:
         for query in queries:
             file_obj.write(json.dumps(asdict(query), ensure_ascii=False) + "\n")
+
+
+def write_per_query_metrics(
+    path: Path,
+    per_query_by_run: dict[str, Sequence[dict[str, Any]]],
+    *,
+    split_by_query_id: dict[str, str] | None,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    metric_fields = [
+        "MRR@10",
+        "Precision@5",
+        "Precision@10",
+        "StrongPrecision@5",
+        "StrongPrecision@10",
+        "nDCG@5",
+        "nDCG@10",
+        "dcg10",
+        "relevant_at_10",
+        "strong_at_10",
+    ]
+    with open(path, "w", encoding="utf-8") as file_obj:
+        for run, rows in per_query_by_run.items():
+            for row in rows:
+                query_id = str(row["query_id"])
+                payload = {
+                    "run": run,
+                    "query_id": query_id,
+                    "query": row.get("query", ""),
+                    "split": split_by_query_id.get(query_id, "all") if split_by_query_id else "all",
+                }
+                for field in metric_fields:
+                    payload[field] = row.get(field)
+                file_obj.write(json.dumps(payload, ensure_ascii=False) + "\n")
 
 
 def write_rerank_grid_artifacts(
@@ -1291,12 +1331,17 @@ def main() -> None:
     rerank_grid_stats: dict[str, Any] = {}
     best_rerank: str | None
     best_metric_name: str
+    split_by_query_id: dict[str, str] | None = None
     if args.rerank_grid:
         tune_indices, holdout_indices = split_query_indices(
             queries,
             tune_frac=args.rerank_tune_frac,
             seed=args.seed,
         )
+        split_by_query_id = {
+            **{queries[idx].query_id: "tune" for idx in tune_indices},
+            **{queries[idx].query_id: "holdout" for idx in holdout_indices},
+        }
         split_metrics_by_run = {"tune": {}, "holdout": {}}
         for split_name, indices in (("tune", tune_indices), ("holdout", holdout_indices)):
             for run_name, ranked in {"baseline": baseline_ranked, "citation_aware": citation_ranked, **rerank_ranked_by_run}.items():
@@ -1340,6 +1385,11 @@ def main() -> None:
         )
     best_comparison = best_rerank or "citation_aware"
     examples = build_examples(baseline_per_query, per_query_by_run[best_comparison], limit=50)
+    write_per_query_metrics(
+        out_dir / "per_query_metrics.jsonl",
+        per_query_by_run,
+        split_by_query_id=split_by_query_id,
+    )
     stats = {
         "documents": len(doc_ids),
         "queries": len(queries),
